@@ -30,6 +30,8 @@ export async function fetchLiveStorms(nhcUrl) {
       intensityKt: Number(s.intensity),
       pressureMb: Number(s.pressure),
       advisoryNum: s.publicAdvisory?.advNum ?? null,
+      forecastAdvisoryUrl: s.forecastAdvisory?.url ?? null,
+      forecastAdvisoryNum: s.forecastAdvisory?.advNum ?? null,
     }));
 }
 

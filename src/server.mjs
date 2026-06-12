@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { config } from "./config.mjs";
 import { fetchLiveStorms, createReplaySource } from "./nhc.mjs";
+import { fetchAdvisory } from "./advisory.mjs";
 import { assess } from "./threat.mjs";
 import { generateBriefing } from "./briefing.mjs";
 import { dispatchAlert } from "./notify.mjs";
@@ -57,6 +58,35 @@ let status = {
 
 const replaySource = config.replay ? createReplaySource() : null;
 
+// Official-advisory cache: refetch only when the advisory number changes
+const advisoryCache = new Map(); // stormId -> { advNum, parsed }
+
+async function enrichWithAdvisories(storms) {
+  return Promise.all(
+    storms.map(async (storm) => {
+      if (!storm.forecastAdvisoryUrl) return storm;
+
+      const cached = advisoryCache.get(storm.id);
+      let parsed = cached?.parsed;
+      if (!cached || cached.advNum !== storm.forecastAdvisoryNum) {
+        parsed = await fetchAdvisory(storm.forecastAdvisoryUrl);
+        advisoryCache.set(storm.id, {
+          advNum: storm.forecastAdvisoryNum,
+          parsed,
+        });
+      }
+      if (!parsed) return storm;
+
+      return {
+        ...storm,
+        forecastPoints: parsed.forecastPoints,
+        radii34Km: parsed.current?.radii34Km ?? storm.radii34Km ?? null,
+        advisoryExcerpt: parsed.excerpt,
+      };
+    })
+  );
+}
+
 async function tick() {
   try {
     let storms;
@@ -69,7 +99,7 @@ async function tick() {
       label = `${frame.label} (frame ${frame.frameIndex}/${replaySource.frameCount})`;
       timestamp = frame.timestamp;
     } else {
-      storms = await fetchLiveStorms(config.nhcUrl);
+      storms = await enrichWithAdvisories(await fetchLiveStorms(config.nhcUrl));
     }
 
     const assessment = assess(storms, config.island, config.thresholds);
@@ -113,7 +143,8 @@ async function tick() {
     status = {
       ...status,
       level: assessment.overall,
-      storms: assessment.storms,
+      // advisoryExcerpt feeds the briefing, not the API payload
+      storms: assessment.storms.map(({ advisoryExcerpt, ...s }) => s),
       updatedAt: timestamp,
       replayLabel: label,
       history: state.history,

@@ -72,11 +72,60 @@ export function closestApproach(storm, island, horizonHours = 120, stepHours = 3
 }
 
 /**
+ * Closest approach along the OFFICIAL forecast track: linear interpolation
+ * between the current position and each forecast point, sampled hourly.
+ * Returns { km, atHours } or null when no usable track exists.
+ */
+export function closestApproachOnTrack(storm, island) {
+  const points = storm.forecastPoints ?? [];
+  if (points.length === 0) return null;
+
+  const track = [
+    { lat: storm.lat, lon: storm.lon, atHours: 0 },
+    ...points
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+      .map((p) => ({ lat: p.lat, lon: p.lon, atHours: p.hoursFromIssuance })),
+  ].sort((a, b) => a.atHours - b.atHours);
+
+  if (track.length < 2) return null;
+
+  let best = {
+    km: haversineKm(track[0].lat, track[0].lon, island.lat, island.lon),
+    atHours: 0,
+  };
+
+  for (let i = 0; i < track.length - 1; i += 1) {
+    const a = track[i];
+    const b = track[i + 1];
+    const span = b.atHours - a.atHours;
+    if (span <= 0) continue;
+    for (let h = 1; h <= span; h += 1) {
+      const t = h / span;
+      const lat = a.lat + (b.lat - a.lat) * t;
+      const lon = a.lon + (b.lon - a.lon) * t;
+      const km = haversineKm(lat, lon, island.lat, island.lon);
+      if (km < best.km) best = { km, atHours: a.atHours + h };
+    }
+  }
+  return best;
+}
+
+/**
  * Threat level for one storm relative to the island.
+ * Uses the official NHC forecast track when available (falling back to
+ * dead reckoning), and accounts for the storm's 34-kt wind field size.
  */
 export function assessStorm(storm, island, thresholds) {
   const nowKm = haversineKm(storm.lat, storm.lon, island.lat, island.lon);
-  const approach = closestApproach(storm, island);
+  const official = closestApproachOnTrack(storm, island);
+  const approach = official ?? closestApproach(storm, island);
+  const method = official ? "official-track" : "dead-reckoning";
+
+  // Wind-field awareness: a storm "reaches" the island when its 34-kt wind
+  // field does, not when its center does.
+  const windFieldKm = Number.isFinite(storm.radii34Km) ? storm.radii34Km : 0;
+  const effectiveNowKm = Math.max(0, nowKm - windFieldKm);
+  const effectiveApproachKm = Math.max(0, approach.km - windFieldKm);
 
   let level = "ALL_CLEAR";
 
@@ -87,15 +136,15 @@ export function assessStorm(storm, island, thresholds) {
   if (inBasinBox) level = "WATCH";
 
   if (
-    approach.km <= thresholds.warningKm &&
+    effectiveApproachKm <= thresholds.warningKm &&
     approach.atHours <= thresholds.warningHours
   ) {
     level = "WARNING";
   }
 
   if (
-    nowKm <= thresholds.imminentKm ||
-    (approach.km <= thresholds.imminentKm &&
+    effectiveNowKm <= thresholds.imminentKm ||
+    (effectiveApproachKm <= thresholds.imminentKm &&
       approach.atHours <= thresholds.imminentHours)
   ) {
     level = "IMMINENT";
@@ -103,9 +152,11 @@ export function assessStorm(storm, island, thresholds) {
 
   return {
     level,
+    method,
     distanceNowKm: Math.round(nowKm),
     closestApproachKm: Math.round(approach.km),
     closestApproachInHours: approach.atHours,
+    windFieldKm,
   };
 }
 

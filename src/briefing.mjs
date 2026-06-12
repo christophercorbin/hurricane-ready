@@ -46,6 +46,12 @@ export async function generateBriefing(assessment, island, bedrockConfig) {
 
   try {
     const client = new BedrockRuntimeClient({ region: bedrockConfig.region });
+    const excerpt = primary?.advisoryExcerpt
+      ? `\n\nOfficial NHC forecast advisory excerpt (for accurate detail; the computed level above still stands):\n${primary.advisoryExcerpt}`
+      : "";
+    const stormData = assessment.storms.map(
+      ({ advisoryExcerpt, ...s }) => s
+    );
     const result = await client.send(
       new ConverseCommand({
         modelId: bedrockConfig.modelId,
@@ -55,7 +61,7 @@ export async function generateBriefing(assessment, island, bedrockConfig) {
             role: "user",
             content: [
               {
-                text: `Island: ${island.name}\nComputed threat level (do not alter): ${assessment.overall}\n\nStorm data:\n${JSON.stringify(assessment.storms, null, 2)}\n\nWrite the briefing.`,
+                text: `Island: ${island.name}\nComputed threat level (do not alter): ${assessment.overall}\n\nStorm data:\n${JSON.stringify(stormData, null, 2)}${excerpt}\n\nWrite the briefing.`,
               },
             ],
           },

@@ -55,7 +55,13 @@
       {
         "id": "al022024", "name": "Beryl", "classification": "MH",
         "lat": 10.6, "lon": -54.5, "movementDir": 275, "movementSpeedKt": 18,
-        "intensityKt": 115, "pressureMb": 954, "advisoryNum": "9"
+        "intensityKt": 115, "pressureMb": 954, "advisoryNum": "9",
+        "radii34Km": 150,
+        "forecastPoints": [
+          { "hoursFromIssuance": 12, "lat": 10.9, "lon": -57.6, "maxWindKt": 120, "radii34Km": 150 },
+          { "hoursFromIssuance": 24, "lat": 11.3, "lon": -60.7, "maxWindKt": 125, "radii34Km": 165 },
+          { "hoursFromIssuance": 48, "lat": 12.2, "lon": -66.5, "maxWindKt": 135, "radii34Km": 185 }
+        ]
       }
     ]
   },
@@ -66,7 +72,12 @@
       {
         "id": "al022024", "name": "Beryl", "classification": "MH",
         "lat": 11.95, "lon": -59.1, "movementDir": 280, "movementSpeedKt": 20,
-        "intensityKt": 120, "pressureMb": 950, "advisoryNum": "11"
+        "intensityKt": 120, "pressureMb": 950, "advisoryNum": "11",
+        "radii34Km": 165,
+        "forecastPoints": [
+          { "hoursFromIssuance": 12, "lat": 12.2, "lon": -62.2, "maxWindKt": 125, "radii34Km": 165 },
+          { "hoursFromIssuance": 24, "lat": 12.6, "lon": -65.3, "maxWindKt": 135, "radii34Km": 185 }
+        ]
       }
     ]
   },

@@ -81,11 +81,14 @@ Two workflows in `.github/workflows/`:
 
 To wire an AWS account: `cd infra && tofu apply` there, then set the outputs as GitHub repo variables (`AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY`, and later `ECS_CLUSTER`/`ECS_SERVICE`). Until then the pipeline is fully functional against GHCR — anyone can `docker run ghcr.io/christophercorbin/hurricane-ready`.
 
+## How the threat is computed
+
+For each active Atlantic storm, the watcher also fetches the official NHC **Forecast/Advisory (TCM)** and parses it deterministically (`src/advisory.mjs`): forecast positions at +12 through +120 hours, max winds, and 34-kt wind radii. Closest approach is computed along the **official forecast track** (interpolated hourly), falling back to dead reckoning from current motion only when no advisory is available — the dashboard labels which method was used. The 34-kt wind-field radius is subtracted from distances, because a storm reaches you when its winds do, not its center. Claude's briefings also receive the raw advisory excerpt for accurate detail (rainfall, timing), with the level still locked by the engine.
+
 ## Limitations & roadmap
 
-- Track projection is dead reckoning from current motion, not the official NHC forecast cone — good for a personal alerting layer, not a replacement for official products. Parsing the NHC GIS cone is the headline roadmap item.
-- Wind-field size is ignored (distance is to the center); large storms matter farther out.
-- Roadmap: official cone ingestion, parish-level shelter directory, multi-island fan-out, Bajan dialect briefing option.
+- Uses official forecast track points, not the full probabilistic cone — approach distances carry the same uncertainty any single-track product does.
+- Roadmap: cone-of-uncertainty rendering, parish-level shelter directory, multi-island fan-out, Bajan dialect briefing option, subscription endpoint with opt-in.
 
 ## License
 
