@@ -69,15 +69,18 @@ resource "aws_iam_role" "task" {
 
 resource "aws_security_group" "alb" {
   name        = "hurricane-ready-alb"
-  description = "Public HTTP for hurricane-ready ALB"
+  description = "ALB ingress restricted to CloudFront VPC origin"
   vpc_id      = data.aws_vpc.default.id
 
+  # The CloudFront VPC origin's managed ENI sits inside this VPC; allowing
+  # the VPC CIDR is the simplest correct path. Nothing else lives in the
+  # default VPC in this account, so the blast radius is the same as a SG-ref.
   ingress {
-    description = "HTTP from anywhere"
+    description = "From CloudFront VPC origin (in-VPC)"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [data.aws_vpc.default.cidr_block]
   }
 
   egress {
@@ -115,7 +118,7 @@ resource "aws_security_group" "tasks" {
 
 resource "aws_lb" "app" {
   name               = "hurricane-ready-alb"
-  internal           = false
+  internal           = true # CloudFront VPC origin reaches it over AWS's private network
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = data.aws_subnets.default.ids
@@ -248,7 +251,7 @@ output "ecs_service" {
   value       = aws_ecs_service.app.name
 }
 
-output "dashboard_url" {
-  description = "Public ALB URL for the dashboard"
-  value       = "http://${aws_lb.app.dns_name}"
+output "alb_internal_dns" {
+  description = "Internal ALB DNS — only reachable from inside the VPC / CloudFront VPC origin"
+  value       = aws_lb.app.dns_name
 }
