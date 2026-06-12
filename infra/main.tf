@@ -15,6 +15,15 @@ terraform {
 
 provider "aws" {
   region = var.region
+
+  # The deploy role's ecs:UpdateService statement is conditioned on
+  # aws:ResourceTag/project = "hurricane-ready" — tagging everything via
+  # default_tags makes that condition impossible to miss on a new resource.
+  default_tags {
+    tags = {
+      project = "hurricane-ready"
+    }
+  }
 }
 
 variable "region" {
