@@ -2,3 +2,9 @@ node_modules/
 data/
 .DS_Store
 *.log
+
+# Terraform / OpenTofu local state (use a remote backend for shared work)
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/.terraform.tfstate.lock.info
