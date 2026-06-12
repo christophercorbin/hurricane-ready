@@ -20,6 +20,13 @@ data "aws_subnets" "default" {
     name   = "default-for-az"
     values = ["true"]
   }
+  # CloudFront VPC Origins doesn't support us-east-1e (legacy AZ with reduced
+  # service availability). Excluding it here so the ALB only lives in AZs the
+  # VPC origin can attach to.
+  filter {
+    name   = "availability-zone"
+    values = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"]
+  }
 }
 
 # ---------- Logs ----------
@@ -68,8 +75,11 @@ resource "aws_iam_role" "task" {
 # ---------- Security groups ----------
 
 resource "aws_security_group" "alb" {
-  name        = "hurricane-ready-alb"
-  description = "ALB ingress restricted to CloudFront VPC origin"
+  name = "hurricane-ready-alb"
+  # NOTE: aws_security_group.description is ForceNew. Keep this in sync with
+  # whatever AWS currently has — changing it triggers a destroy+create, and
+  # ELB-related SG deletes can hang on internal AWS bookkeeping for 15+ min.
+  description = "Public HTTP for hurricane-ready ALB"
   vpc_id      = data.aws_vpc.default.id
 
   # The CloudFront VPC origin's managed ENI sits inside this VPC; allowing
