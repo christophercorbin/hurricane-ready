@@ -46,13 +46,25 @@ jobs:
           done
           curl -sf http://localhost:8080/healthz
 
-          # replay must reach IMMINENT and return to ALL_CLEAR
-          sleep 14
-          STATUS=$(curl -sf http://localhost:8080/api/status)
+          # Replay must reach IMMINENT and return to ALL_CLEAR. A fixed sleep
+          # is brittle — startup lag + runner-speed variance means the replay
+          # may be parked on frame 10 or still mid-cycle at any given moment.
+          # Poll until both conditions hold, or give up after 40s.
+          STATUS=""
+          for i in $(seq 1 40); do
+            STATUS=$(curl -sf http://localhost:8080/api/status) || true
+            HAS_IMM=$(echo "$STATUS" | jq -r '.history | map(.to) | index("IMMINENT") != null' 2>/dev/null || echo false)
+            LEVEL=$(echo "$STATUS" | jq -r '.level' 2>/dev/null || echo "")
+            if [ "$HAS_IMM" = "true" ] && [ "$LEVEL" = "ALL_CLEAR" ]; then
+              echo "Replay completed: ladder reached IMMINENT and returned to ALL_CLEAR (t=${i}s)"
+              break
+            fi
+            sleep 1
+          done
           echo "$STATUS" | jq -e '.history | map(.to) | index("IMMINENT") != null' \
             || (echo "Replay never reached IMMINENT"; echo "$STATUS" | jq .history; exit 1)
           echo "$STATUS" | jq -e '.level == "ALL_CLEAR"' \
-            || (echo "Replay did not return to ALL_CLEAR"; exit 1)
+            || (echo "Replay did not return to ALL_CLEAR (final level=$LEVEL)"; exit 1)
 
           # dashboard serves
           curl -sf http://localhost:8080/ | grep -q "Hurricane-Ready"
