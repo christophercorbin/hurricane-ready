@@ -4,6 +4,8 @@ import {
   haversineKm,
   projectPosition,
   closestApproach,
+  compassSide,
+  classifyPass,
   assessStorm,
   assess,
 } from "../src/threat.mjs";
@@ -79,6 +81,33 @@ test("assess: overall takes the worst storm", () => {
 test("assess: no storms means ALL_CLEAR", () => {
   const r = assess([], BARBADOS, THRESHOLDS);
   assert.equal(r.overall, "ALL_CLEAR");
+});
+
+test("compassSide: a point due south reads 'south'", () => {
+  assert.equal(compassSide(BARBADOS.lat, BARBADOS.lon, 11.5, -59.54), "south");
+  assert.equal(compassSide(BARBADOS.lat, BARBADOS.lon, 13.19, -57.0), "east");
+});
+
+test("classifyPass: a 130km pass to the south is a close pass", () => {
+  const closest = { km: 130, atHours: 12, lat: 12.0, lon: -59.54 };
+  const p = classifyPass(closest, "WARNING", BARBADOS);
+  assert.equal(p.kind, "close-pass");
+  assert.equal(p.side, "south");
+  assert.equal(p.distanceKm, 130);
+});
+
+test("classifyPass: a 350km pass is a nearby pass", () => {
+  const closest = { km: 350, atHours: 24, lat: 13.19, lon: -56.3 };
+  assert.equal(classifyPass(closest, "WATCH", BARBADOS).kind, "nearby-pass");
+});
+
+test("assessStorm: a storm passing south sets pass side and is not silent", () => {
+  // Moving due west ~200km south of Barbados: a nearby pass, never imminent
+  const storm = { lat: 11.4, lon: -55.0, movementDir: 270, movementSpeedKt: 16 };
+  const r = assessStorm(storm, BARBADOS, THRESHOLDS);
+  assert.ok(["WATCH", "WARNING"].includes(r.level), `got ${r.level}`);
+  assert.equal(r.pass.side, "south");
+  assert.equal(r.pass.kind, "nearby-pass");
 });
 
 test("missing movement data falls back to current distance", () => {

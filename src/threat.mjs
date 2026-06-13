@@ -53,6 +53,8 @@ export function closestApproach(storm, island, horizonHours = 120, stepHours = 3
   let best = {
     km: haversineKm(storm.lat, storm.lon, island.lat, island.lon),
     atHours: 0,
+    lat: storm.lat,
+    lon: storm.lon,
   };
   if (!Number.isFinite(storm.movementDir) || !Number.isFinite(storm.movementSpeedKt)) {
     return best;
@@ -66,9 +68,42 @@ export function closestApproach(storm, island, horizonHours = 120, stepHours = 3
       h
     );
     const km = haversineKm(p.lat, p.lon, island.lat, island.lon);
-    if (km < best.km) best = { km, atHours: h };
+    if (km < best.km) best = { km, atHours: h, lat: p.lat, lon: p.lon };
   }
   return best;
+}
+
+/**
+ * Compass direction FROM the island TO a point — i.e. which side of the
+ * island the storm's closest pass sits on (N, NE, E, ...).
+ */
+export function compassSide(fromLat, fromLon, toLat, toLon) {
+  const dLon = toRad(toLon - fromLon);
+  const y = Math.sin(dLon) * Math.cos(toRad(toLat));
+  const x =
+    Math.cos(toRad(fromLat)) * Math.sin(toRad(toLat)) -
+    Math.sin(toRad(fromLat)) * Math.cos(toRad(toLat)) * Math.cos(dLon);
+  const bearing = (toDeg(Math.atan2(y, x)) + 360) % 360;
+  const dirs = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"];
+  return dirs[Math.round(bearing / 45) % 8];
+}
+
+/**
+ * Classify how a storm relates to the island once its level is known.
+ * Returns a human-facing descriptor: a direct-hit risk, a close pass, a
+ * nearby pass, or distant — plus which side it passes and how far.
+ */
+export function classifyPass(closest, level, island) {
+  const km = Math.round(closest.km);
+  const side = compassSide(island.lat, island.lon, closest.lat, closest.lon);
+
+  let kind;
+  if (level === "IMMINENT" && km <= 75) kind = "direct-hit-risk";
+  else if (km <= 150) kind = "close-pass";
+  else if (km <= 400) kind = "nearby-pass";
+  else kind = "distant";
+
+  return { kind, side, distanceKm: km };
 }
 
 /**
@@ -92,6 +127,8 @@ export function closestApproachOnTrack(storm, island) {
   let best = {
     km: haversineKm(track[0].lat, track[0].lon, island.lat, island.lon),
     atHours: 0,
+    lat: track[0].lat,
+    lon: track[0].lon,
   };
 
   for (let i = 0; i < track.length - 1; i += 1) {
@@ -104,7 +141,7 @@ export function closestApproachOnTrack(storm, island) {
       const lat = a.lat + (b.lat - a.lat) * t;
       const lon = a.lon + (b.lon - a.lon) * t;
       const km = haversineKm(lat, lon, island.lat, island.lon);
-      if (km < best.km) best = { km, atHours: a.atHours + h };
+      if (km < best.km) best = { km, atHours: a.atHours + h, lat, lon };
     }
   }
   return best;
@@ -150,6 +187,19 @@ export function assessStorm(storm, island, thresholds) {
     level = "IMMINENT";
   }
 
+  const pass = classifyPass(approach, level, island);
+
+  // Near-miss floor: a storm forecast to pass within ~400 km should never be
+  // silent, even if it's outside the basin awareness box.
+  const order = ["ALL_CLEAR", "WATCH", "WARNING", "IMMINENT"];
+  if (
+    (pass.kind === "close-pass" || pass.kind === "nearby-pass") &&
+    approach.atHours <= thresholds.warningHours &&
+    order.indexOf(level) < order.indexOf("WATCH")
+  ) {
+    level = "WATCH";
+  }
+
   return {
     level,
     method,
@@ -157,6 +207,7 @@ export function assessStorm(storm, island, thresholds) {
     closestApproachKm: Math.round(approach.km),
     closestApproachInHours: approach.atHours,
     windFieldKm,
+    pass,
   };
 }
 

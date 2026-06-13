@@ -13,9 +13,16 @@ const SYSTEM = `You write public hurricane-preparedness briefings for residents 
 Hard rules:
 - NEVER change, second-guess, or restate a different threat level than the one provided. The level is decided by software, not by you.
 - Calm, clear, practical. No drama, no minimizing. Short sentences. Plain words.
-- Structure: 1) what is happening in one or two sentences; 2) what this level means for the island; 3) a checklist of 4-6 actions appropriate to THIS level only; 4) one line on when the next update is expected.
+- Most storms do NOT make a direct hit — they pass nearby. When the data shows a storm passing to one side (its "pass" has a side and distance), say so plainly, e.g. "Beryl is forecast to pass about 130 km to the south." Make clear that a nearby pass still brings strong winds, heavy rain, and dangerous seas — being missed by the centre is not the same as being safe.
+- Structure: 1) what is happening, including where it will pass and how close, in one or two sentences; 2) what this level means for the island; 3) a checklist of 4-6 actions appropriate to THIS level only; 4) one line on when the next update is expected.
 - End with: "Always follow official guidance from Barbados Meteorological Services and the Department of Emergency Management."
 - Keep it under 220 words. Plain text with simple dashes for the checklist.`;
+
+const PASS_PHRASE = (pass) => {
+  if (!pass || pass.kind === "distant") return "";
+  if (pass.kind === "direct-hit-risk") return ` The centre may track very close to the island.`;
+  return ` It is forecast to pass about ${pass.distanceKm} km to the ${pass.side}, but a nearby pass still brings strong winds, heavy rain, and dangerous seas.`;
+};
 
 const TEMPLATES = {
   ALL_CLEAR: (island) =>
@@ -29,7 +36,13 @@ const TEMPLATES = {
 };
 
 export function templateBriefing(level, islandName, primaryStorm) {
-  return TEMPLATES[level](islandName, primaryStorm);
+  const base = TEMPLATES[level](islandName, primaryStorm);
+  const pass = primaryStorm?.assessment?.pass;
+  const phrase = PASS_PHRASE(pass);
+  if (!phrase) return base;
+  // Insert the pass detail after the first sentence.
+  const dot = base.indexOf(". ");
+  return dot > 0 ? base.slice(0, dot + 1) + phrase + base.slice(dot + 1) : phrase.trim() + "\n\n" + base;
 }
 
 export async function generateBriefing(assessment, island, bedrockConfig) {

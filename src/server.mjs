@@ -19,32 +19,59 @@ const dashboardHtml = readFileSync(path.join(here, "../web/index.html"), "utf-8"
 
 // ---------- State (JSON file on a volume) ----------
 
-function loadState() {
+// State is namespaced by mode so the Beryl replay demo never bleeds its
+// historical (2024) transitions into the live view, and vice versa.
+const MODE = config.replay ? "replay" : "live";
+const FRESH = { level: "ALL_CLEAR", history: [] };
+
+function loadAllState() {
   try {
     if (existsSync(config.stateFile)) {
-      return JSON.parse(readFileSync(config.stateFile, "utf-8"));
+      const parsed = JSON.parse(readFileSync(config.stateFile, "utf-8"));
+      // Migrate the old un-namespaced shape; discard its history (it may be
+      // stale replay data) but keep it from crashing.
+      if (parsed.live || parsed.replay) return parsed;
     }
   } catch {
     /* corrupted state: start fresh */
   }
-  return { level: "ALL_CLEAR", history: [] };
+  return {};
 }
 
-function saveState(state) {
+const allState = loadAllState();
+
+// The replay is a demo: start each run with a clean slate so history shows
+// exactly one Beryl life-cycle, never stacked duplicates from prior runs.
+let state =
+  MODE === "replay" || !allState[MODE]
+    ? { level: "ALL_CLEAR", history: [] }
+    : allState[MODE];
+
+function saveState(current) {
   try {
     mkdirSync(path.dirname(config.stateFile), { recursive: true });
-    writeFileSync(config.stateFile, JSON.stringify(state, null, 2));
+    allState[MODE] = current;
+    writeFileSync(config.stateFile, JSON.stringify(allState, null, 2));
   } catch (err) {
     console.warn(`Could not persist state: ${err.message}`);
   }
 }
 
-let state = loadState();
+// ---------- Historical near-misses (static reference) ----------
+
+let nearbyHistory = [];
+try {
+  const histFile = path.join(here, "../fixtures/barbados-history.json");
+  nearbyHistory = JSON.parse(readFileSync(histFile, "utf-8")).storms ?? [];
+} catch {
+  /* optional reference data */
+}
 
 // ---------- Current status (served by the API) ----------
 
 let status = {
   island: config.island,
+  nearbyHistory,
   mode: config.replay ? "replay" : "live",
   level: state.level,
   storms: [],
@@ -57,6 +84,7 @@ let status = {
 };
 
 const replaySource = config.replay ? createReplaySource() : null;
+let lastBriefingKm = null;
 
 // Official-advisory cache: refetch only when the advisory number changes
 const advisoryCache = new Map(); // stormId -> { advNum, parsed }
@@ -105,8 +133,18 @@ async function tick() {
     const assessment = assess(storms, config.island, config.thresholds);
     const levelChanged = assessment.overall !== state.level;
 
-    // Briefing: regenerate on level change or first run
-    if (levelChanged || !status.briefing) {
+    // Keep the briefing's stated distance honest as a storm closes in:
+    // regenerate on level change, first run, or a material shift in the
+    // primary storm's closest approach (> 50 km).
+    const primaryKm =
+      assessment.storms.find((s) => s.assessment.level === assessment.overall)
+        ?.assessment.closestApproachKm ?? null;
+    const distMoved =
+      lastBriefingKm != null &&
+      primaryKm != null &&
+      Math.abs(primaryKm - lastBriefingKm) > 50;
+
+    if (levelChanged || !status.briefing || distMoved) {
       const briefing = await generateBriefing(
         assessment,
         config.island,
@@ -114,6 +152,7 @@ async function tick() {
       );
       status.briefing = briefing.text;
       status.briefingSource = briefing.source;
+      lastBriefingKm = primaryKm;
     }
 
     if (levelChanged) {
