@@ -108,13 +108,17 @@
     .history b { color: var(--text); font-weight: 600; }
 
     .hist-intro { padding: 0 1.1rem 0.7rem; font-size: 0.86rem; color: var(--muted); line-height: 1.6; }
-    .nearby-history { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.6rem; padding: 0 1.1rem 1.1rem; }
-    .hist-card { border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 0.85rem; background: var(--card-2); }
-    .hist-card .top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
-    .hist-card .nm { font-weight: 700; font-size: 0.92rem; }
-    .hist-card .yr { font-size: 0.78rem; color: var(--muted); }
-    .hist-card .meta { font-size: 0.76rem; color: var(--accent); margin: 0.25rem 0 0.4rem; }
-    .hist-card .out { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+    .weather { padding: 0.2rem 1.1rem 1.1rem; }
+    .wx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; }
+    .wx-now { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.9rem; }
+    .wx-temp { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+    .wx-desc { font-size: 0.95rem; color: var(--text); }
+    .wx-feels { font-size: 0.8rem; color: var(--muted); }
+    .wx-tile { border: 1px solid var(--border); border-radius: 12px; padding: 0.6rem 0.75rem; background: var(--card-2); }
+    .wx-tile .lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .wx-tile .val { font-size: 1.1rem; font-weight: 700; margin-top: 0.15rem; }
+    .wx-obs { font-size: 0.72rem; color: var(--muted); margin-top: 0.7rem; }
+    .wx-note { font-size: 0.78rem; color: var(--muted); margin-top: 0.7rem; line-height: 1.5; }
 
     footer { text-align: center; font-size: 0.76rem; color: var(--muted); padding: 1.4rem 1rem 0; line-height: 1.7; max-width: 740px; margin: 0 auto; }
     .disclaimer { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); border-radius: 12px; padding: 0.65rem 0.9rem; margin-bottom: 0.7rem; color: #fde68a; }
@@ -180,9 +184,8 @@
       </section>
 
       <section class="card" style="grid-column: 1 / -1;">
-        <h2>📖 Storms that have passed near Barbados</h2>
-        <p class="hist-intro">Direct hits are rare — most systems pass nearby and still bring strong winds, rain, and dangerous seas. A look at the track record:</p>
-        <div id="nearby-history" class="nearby-history"></div>
+        <h2>🌤️ Current conditions in <span id="wx-island">Barbados</span></h2>
+        <div id="weather" class="weather"><p class="hist-intro">Loading current weather…</p></div>
       </section>
     </main>
 
@@ -254,15 +257,25 @@
         .map(h => `${new Date(h.at).toUTCString().slice(5, 22)} UTC — ${h.from.replace("_"," ")} → <b>${h.to.replace("_"," ")}</b>`)
         .join("<br>") || "No level changes yet";
 
-      const histEl = document.getElementById("nearby-history");
-      if (histEl && !histEl.dataset.filled && (s.nearbyHistory ?? []).length) {
-        histEl.innerHTML = s.nearbyHistory.map(h => `
-          <div class="hist-card">
-            <div class="top"><span class="nm">${h.name}</span><span class="yr">${h.month} ${h.year}</span></div>
-            <div class="meta">${h.peak} · about ${h.approxKm} km ${h.side === "near" ? "away" : "to the " + h.side}</div>
-            <div class="out">${h.outcome}</div>
-          </div>`).join("");
-        histEl.dataset.filled = "1";
+      document.getElementById("wx-island").textContent = s.island.name;
+      const wxEl = document.getElementById("weather");
+      const w = s.weather;
+      if (w) {
+        wxEl.innerHTML = `
+          <div class="wx-now">
+            <div class="wx-temp">${w.tempC}°C</div>
+            <div><div class="wx-desc">${w.description}</div><div class="wx-feels">Feels like ${w.feelsLikeC}°C</div></div>
+          </div>
+          <div class="wx-grid">
+            <div class="wx-tile"><div class="lbl">Wind</div><div class="val">${w.windKt} kt ${w.windFrom}</div></div>
+            <div class="wx-tile"><div class="lbl">Gusts</div><div class="val">${w.gustKt} kt</div></div>
+            <div class="wx-tile"><div class="lbl">Humidity</div><div class="val">${w.humidity}%</div></div>
+            <div class="wx-tile"><div class="lbl">Rain</div><div class="val">${w.precipMm} mm</div></div>
+          </div>
+          <p class="wx-obs">Observed ${new Date(w.observedAt + "Z").toUTCString().slice(5, 22)} UTC · Open-Meteo</p>
+          <p class="wx-note">A storm history panel will appear here once the watcher has recorded systems passing near the island.</p>`;
+      } else {
+        wxEl.innerHTML = `<p class="hist-intro">Current weather is unavailable right now.</p>`;
       }
 
       if (!map) initMap(s.island);

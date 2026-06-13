@@ -10,6 +10,7 @@ import path from "node:path";
 import { config } from "./config.mjs";
 import { fetchLiveStorms, createReplaySource } from "./nhc.mjs";
 import { fetchAdvisory } from "./advisory.mjs";
+import { fetchCurrentWeather } from "./weather.mjs";
 import { assess } from "./threat.mjs";
 import { generateBriefing } from "./briefing.mjs";
 import { dispatchAlert } from "./notify.mjs";
@@ -57,21 +58,11 @@ function saveState(current) {
   }
 }
 
-// ---------- Historical near-misses (static reference) ----------
-
-let nearbyHistory = [];
-try {
-  const histFile = path.join(here, "../fixtures/barbados-history.json");
-  nearbyHistory = JSON.parse(readFileSync(histFile, "utf-8")).storms ?? [];
-} catch {
-  /* optional reference data */
-}
-
 // ---------- Current status (served by the API) ----------
 
 let status = {
   island: config.island,
-  nearbyHistory,
+  weather: null,
   mode: config.replay ? "replay" : "live",
   level: state.level,
   storms: [],
@@ -179,11 +170,14 @@ async function tick() {
       saveState(state);
     }
 
+    const weather = await fetchCurrentWeather(config.island);
+
     status = {
       ...status,
       level: assessment.overall,
       // advisoryExcerpt feeds the briefing, not the API payload
       storms: assessment.storms.map(({ advisoryExcerpt, ...s }) => s),
+      weather: weather ?? status.weather,
       updatedAt: timestamp,
       replayLabel: label,
       history: state.history,
