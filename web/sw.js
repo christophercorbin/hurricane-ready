@@ -1,0 +1,83 @@
+/* Hurricane-Ready service worker: offline shell + cached status + push. */
+const CACHE = "hr-cache-v1";
+const SHELL = [
+  "/",
+  "/index.html",
+  "/manifest.webmanifest",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+];
+
+self.addEventListener("install", (e) => {
+  e.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+function cacheCopy(req, res) {
+  if (res && res.ok) {
+    const copy = res.clone();
+    caches.open(CACHE).then((c) => c.put(req, copy));
+  }
+  return res;
+}
+
+self.addEventListener("fetch", (e) => {
+  const req = e.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+
+  // Live data: network-first so it's fresh online, last-saved when offline.
+  if (url.pathname === "/api/status") {
+    e.respondWith(fetch(req).then((r) => cacheCopy(req, r)).catch(() => caches.match(req)));
+    return;
+  }
+  // Page navigations: network-first, fall back to the cached shell offline.
+  if (req.mode === "navigate") {
+    e.respondWith(
+      fetch(req).then((r) => cacheCopy(req, r))
+        .catch(() => caches.match(req).then((r) => r || caches.match("/index.html")))
+    );
+    return;
+  }
+  // Other same-origin assets: cache-first.
+  if (url.origin === self.location.origin) {
+    e.respondWith(caches.match(req).then((c) => c || fetch(req).then((r) => cacheCopy(req, r))));
+  }
+  // Cross-origin (map tiles, satellite) fall through to the network.
+});
+
+self.addEventListener("push", (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch { data = {}; }
+  const title = data.title || "Hurricane-Ready";
+  const opts = {
+    body: data.body || "",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    tag: "hr-alert",
+    renotify: true,
+    requireInteraction: data.level === "WARNING" || data.level === "IMMINENT",
+    data: { url: data.url || "/" },
+  };
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) { if ("focus" in w) return w.focus(); }
+      return self.clients.openWindow(e.notification.data && e.notification.data.url || "/");
+    })
+  );
+});

@@ -69,6 +69,16 @@ jobs:
           # dashboard serves
           curl -sf http://localhost:8080/ | grep -q "Hurricane-Ready"
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Frontend smoke test (Playwright)
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+          BASE_URL=http://localhost:8080 npm run test:e2e
+
       - name: Container logs (on failure)
         if: failure()
         run: docker logs hr

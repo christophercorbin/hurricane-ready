@@ -19,6 +19,12 @@ services:
       MODEL_ID: ${MODEL_ID:-us.anthropic.claude-haiku-4-5-20251001-v1:0}
       DISABLE_AI: ${DISABLE_AI:-0}
 
+      # --- Web Push (optional; "Get storm alerts" opt-in) ---
+      # Generate once: npx web-push generate-vapid-keys  (put in .env)
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:alerts@hurricane-ready.local}
+
       # --- Alert channels (all optional) ---
       # SENDER_EMAIL must be SES-verified; ALERT_PHONES in E.164 (+1246...)
       ALERT_EMAILS: ${ALERT_EMAILS:-}
