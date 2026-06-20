@@ -38,6 +38,7 @@ test("addSubscription rejects malformed input", () => {
 });
 
 test("sendPushToAll is a no-op when push is disabled", async () => {
-  const r = await push.sendPushToAll({ title: "t", body: "b" });
-  assert.deepEqual(r, { sent: 0, pruned: 0 });
+  const r = await push.sendPushToAll({ title: "t", body: "b", level: "WATCH" });
+  assert.equal(r.sent, 0);
+  assert.equal(r.pruned, 0);
 });

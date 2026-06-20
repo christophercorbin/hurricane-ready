@@ -12,10 +12,10 @@ A single scrolling page (sticky section nav) built for a general audience, with 
 
 - **Right now** — current conditions plus a one-line "today at a glance" summary.
 - **7-day** — daily forecast cards (icon, high/low, rain chance).
-- **Rain & wind** — next-24h outlook in words, with an hourly strip.
+- **Rain & wind** — next-24h outlook in words, with an hourly strip, plus a **flash-flood watch** (24-hour rainfall total + peak hourly intensity → plain-language flood risk).
 - **Beach & sea** — sea state, wave height, UV, **sun & moon** (sunrise/sunset, day length, moon phase), and **air & tide** (US AQI, Saharan-dust/haze level, tide state and next high/low).
 - **Radar & satellite** — live RainViewer rain radar on a Leaflet map (play/pause loop), plus a NOAA GOES-East GeoColor satellite view cropped to the eastern Caribbean, marked with Barbados and with its own animated loop. Both have a plain-language "What am I looking at?" explainer for non-technical readers.
-- **Storms & tropics** — active-system threat table, the **NHC Atlantic Tropical Weather Outlook** (areas to watch + 7-day formation chances, parsed from the public TWO feed), this season's **storm-name list** (active/used/next highlighted), the threat-level legend, and level history.
+- **Storms & tropics** — active-system threat table, a **wind-arrival estimate** ("tropical-storm-force winds could reach us by ~Xpm" from the forecast track + 34-kt wind radii), the **NHC Atlantic Tropical Weather Outlook** (areas to watch + 7-day formation chances, parsed from the public TWO feed), this season's **storm-name list** (active/used/next highlighted), the threat-level legend, and level history.
 - **Shelters & emergency** — verified Barbados emergency numbers (one-tap `tel:` links) and a parish-filtered finder for the official **DEM Category 1 hurricane shelters** (with wheelchair-access flags), linking to the current DEM booklet.
 - **Get ready** — a plain-language hurricane-prep checklist (before the season / watch / warning) and an **official-sources hub** linking straight to Barbados Met Services products, DEM, and NHC.
 
@@ -27,7 +27,7 @@ Everyday weather, marine, and air-quality data come from the free [Open-Meteo](h
 
 The dashboard is a Progressive Web App: installable to a phone's home screen, and it **works offline** — a service worker caches the app shell and the last `/api/status`, so during a storm (when connectivity drops) it still shows the last guidance and the prep checklist.
 
-A one-tap **"Get storm alerts"** opt-in subscribes the browser to **Web Push** — no phone number, no account. When the threat level changes, the server pushes a notification to every subscriber (even with the app closed). It's entirely optional: set a VAPID keypair to enable it, or leave it off and the button simply hides.
+A one-tap **"Get storm alerts"** opt-in subscribes the browser to **Web Push** — no phone number, no account. When the threat level changes, the server pushes a notification to every subscriber (even with the app closed). Each subscriber can set a **minimum level** (e.g. only Warning and above) and an **overnight-quiet** option that mutes Watch-level pings 10pm–7am — Warning and Imminent always come through. It's entirely optional: set a VAPID keypair to enable it, or leave it off and the button simply hides.
 
 ```bash
 npx web-push generate-vapid-keys      # once; put the pair in .env
@@ -119,8 +119,10 @@ For each active Atlantic storm, the watcher also fetches the official NHC **Fore
 
 ## Limitations & roadmap
 
-- Uses official forecast track points, not the full probabilistic cone — approach distances carry the same uncertainty any single-track product does.
-- Roadmap: cone-of-uncertainty rendering, parish-level shelter directory, multi-island fan-out, Bajan dialect briefing option, subscription endpoint with opt-in.
+- The storm map's cone of uncertainty is an approximation (forecast track points offset by the published 2026 average error radii), not NHC's exact polygon; the threat level keys off the single forecast track, so it carries that product's uncertainty.
+- **Official civil-protection alerts** come from the Government of Barbados / DEM **CAP.CAP** system (Optimit CAPEWS platform). The server polls its public active-alarm count (`checkActiveAlarms`) each cycle and, when one or more alerts are live, shows a prominent red banner above everything linking to CAP.CAP — it never re-publishes the alert text (CAP.CAP stays the source of truth) and hides on any fetch failure. There's no public CAP *text* feed to parse; if DEM exposes one, the banner can be upgraded to show severity/effective/expires inline.
+- **Routine BMS weather advisories** — small-craft, heavy-rain/flood, dust — are a separate, lower tier (issued by Barbados Met Services, not escalated through DEM CAP). They don't drive the threat level; the site links to BMS's current advisories rather than re-publishing them.
+- Roadmap: multi-island fan-out, Bajan-dialect briefing option, historical "storms near Barbados" archive, official BMS CAP-feed ingest when available.
 
 ## License
 

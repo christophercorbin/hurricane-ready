@@ -12,6 +12,7 @@ import { fetchLiveStorms, createReplaySource } from "./nhc.mjs";
 import { fetchAdvisory } from "./advisory.mjs";
 import { fetchCurrentWeather, fetchOutlook } from "./weather.mjs";
 import { fetchTropicalOutlook, ATLANTIC_NAMES_2026, stormsSoFar } from "./tropical.mjs";
+import { fetchCivilAlerts } from "./civil.mjs";
 import { assess } from "./threat.mjs";
 import { generateBriefing } from "./briefing.mjs";
 import { dispatchAlert } from "./notify.mjs";
@@ -104,6 +105,7 @@ let status = {
   weather: null,
   outlook: null,
   tropical: null,
+  civilAlert: null,
   seasonNames: ATLANTIC_NAMES_2026,
   stormsSoFar: 0,
   mode: config.replay ? "replay" : "live",
@@ -225,11 +227,13 @@ async function tick() {
       saveState(state);
     }
 
-    const [weather, outlook, tropical] = await Promise.all([
+    const [weather, outlook, tropical, civilAlert] = await Promise.all([
       fetchCurrentWeather(config.island),
       fetchOutlook(config.island),
-      // In replay mode the live Atlantic outlook is irrelevant to the demo.
+      // In replay mode the live Atlantic outlook / civil alerts are irrelevant
+      // to the historical Beryl demo.
       config.replay ? Promise.resolve(null) : fetchTropicalOutlook(),
+      config.replay ? Promise.resolve(null) : fetchCivilAlerts(),
     ]);
 
     const cleanStorms = assessment.storms.map(({ advisoryExcerpt, ...s }) => s);
@@ -242,6 +246,7 @@ async function tick() {
       weather: weather ?? status.weather,
       outlook: outlook ?? status.outlook,
       tropical: tropical ?? status.tropical,
+      civilAlert: config.replay ? null : (civilAlert ?? status.civilAlert),
       updatedAt: timestamp,
       replayLabel: label,
       history: state.history,
@@ -297,8 +302,9 @@ const server = createServer((req, res) => {
     return;
   }
   if (req.method === "POST" && req.url === "/api/subscribe") {
-    readJson(req).then((sub) => {
-      const ok = sub && addSubscription(sub);
+    readJson(req).then((body) => {
+      const sub = body && body.subscription ? body.subscription : body;
+      const ok = sub && addSubscription(sub, { minLevel: body && body.minLevel, quiet: body && body.quiet });
       res.writeHead(ok ? 201 : 400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: Boolean(ok) }));
     });

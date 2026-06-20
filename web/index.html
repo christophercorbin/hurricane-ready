@@ -70,6 +70,8 @@
     :root[data-theme="light"] .WATCH .b-title, :root[data-theme="light"] .chip.WATCH, :root[data-theme="light"] .uv.moderate, :root[data-theme="light"] .chance.medium { color: #a16207; }
     :root[data-theme="light"] .WARNING .b-title, :root[data-theme="light"] .chip.WARNING, :root[data-theme="light"] .uv.high { color: #c2410c; }
     :root[data-theme="light"] .IMMINENT .b-title, :root[data-theme="light"] .chip.IMMINENT, :root[data-theme="light"] .chance.high, :root[data-theme="light"] .name-chip.active, :root[data-theme="light"] .emerg-num b { color: #b91c1c; }
+    :root[data-theme="light"] .civil-alert .ca-text, :root[data-theme="light"] .civil-alert .ca-arrow { color: #b91c1c; }
+    :root[data-theme="light"] .civil-alert .ca-text b { color: #7f1d1d; }
     :root[data-theme="light"] .uv.low { color: #15803d; }
     :root[data-theme="light"] .disclaimer { color: #854d0e; }
     :root[data-theme="light"] .name-chip.next { color: #0369a1; }
@@ -81,6 +83,8 @@
     .settings-panel label { font-size: 0.78rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.25rem; }
     .settings-panel select { background: var(--card-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.4rem; font-size: 0.85rem; }
     * { box-sizing: border-box; margin: 0; }
+    /* The `hidden` attribute must win over component display rules (flex/grid). */
+    [hidden] { display: none !important; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg); background-image: var(--bg-grad); background-attachment: fixed;
@@ -134,7 +138,22 @@
     .alerts-btn:hover { filter: brightness(1.08); }
     .alerts-bar.on { background: rgba(22,163,74,0.1); border-color: rgba(22,163,74,0.35); }
     .alerts-bar.on .alerts-btn { background: transparent; color: var(--muted); border: 1px solid var(--border); font-weight: 600; }
+    .alerts-prefs { display: flex; gap: 0.9rem; align-items: center; flex-wrap: wrap; width: 100%; font-size: 0.8rem; color: var(--muted); margin-top: 0.1rem; }
+    .alerts-prefs select { background: var(--card-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
+    .alerts-prefs label { display: inline-flex; align-items: center; gap: 0.35rem; }
     .offline-note { background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); color: #fde68a; border-radius: 12px; padding: 0.55rem 0.9rem; margin-bottom: 0.9rem; font-size: 0.85rem; }
+    .civil-alert { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; background: var(--imminent-soft); border: 1px solid rgba(239,68,68,0.55); border-radius: 14px; padding: 0.8rem 1rem; margin-bottom: 0.9rem; }
+    .civil-alert:hover { border-color: #f87171; }
+    .civil-alert .ca-ico { font-size: 1.3rem; flex-shrink: 0; }
+    .civil-alert .ca-text { font-size: 0.9rem; color: #fca5a5; flex: 1; line-height: 1.45; }
+    .civil-alert .ca-text b { color: #fecaca; }
+    .civil-alert .ca-arrow { color: #fca5a5; font-weight: 700; flex-shrink: 0; }
+    .advisory-link { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.6rem 0.9rem; margin-bottom: 0.9rem; }
+    .advisory-link:hover { border-color: var(--accent); }
+    .advisory-link .adv-ico { font-size: 1.1rem; flex-shrink: 0; }
+    .advisory-link .adv-text { font-size: 0.85rem; color: var(--soft-text); flex: 1; line-height: 1.45; }
+    .advisory-link .adv-text b { color: var(--text); }
+    .advisory-link .adv-arrow { color: var(--accent); font-weight: 700; flex-shrink: 0; }
 
     /* Sticky section nav */
     .section-nav {
@@ -169,6 +188,9 @@
     .wx-tile .val { font-size: 1.1rem; font-weight: 700; margin-top: 0.15rem; }
     .wx-obs { font-size: 0.72rem; color: var(--muted); padding: 0 1.1rem 1.1rem; }
     .panel-age { font-size: 0.7rem; color: var(--muted); padding: 0 1.1rem 1rem; }
+    .flood-note { font-size: 0.88rem; color: var(--soft-text); padding: 0 1.1rem 0.6rem; line-height: 1.5; }
+    .flood-note .chance, .arrival-note .chance { margin-right: 0.35rem; }
+    .arrival-note { font-size: 0.9rem; color: var(--soft-text); padding: 0.2rem 1.1rem 0.7rem; line-height: 1.5; }
 
     /* 7-day forecast */
     .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; padding: 0.3rem 1.1rem 1.1rem; }
@@ -198,6 +220,17 @@
     /* Map / radar */
     #map { height: 360px; background: var(--card-2); }
     @media (max-width: 720px) { #map { height: 280px; } }
+
+    /* Mobile: comfortable tap targets + a little more breathing room. */
+    @media (max-width: 560px) {
+      .wrap { padding: 0.9rem 0.8rem 2rem; }
+      .section-nav { margin: 0 -0.8rem 1.1rem; padding: 0.5rem 0.8rem; }
+      .section-nav a { padding: 0.55rem 0.7rem; }
+      .radar-bar button, .sat-bar button, .alerts-btn { min-height: 44px; }
+      .settings-btn { width: 40px; height: 40px; }
+      .shelter-pick select, .alerts-prefs select, .settings-panel select, .emerg-num { min-height: 44px; }
+      .source { min-height: 52px; }
+    }
     .radar-bar { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem 1.1rem; font-size: 0.8rem; color: var(--muted); flex-wrap: wrap; }
     .radar-bar button {
       background: var(--card-2); color: var(--text); border: 1px solid var(--border);
@@ -331,6 +364,12 @@
       </div>
     </header>
 
+    <a id="civil-alert" class="civil-alert" href="https://brb-secondary.capews.com/capews/public/active" target="_blank" rel="noopener" hidden>
+      <span class="ca-ico" aria-hidden="true">🚨</span>
+      <span class="ca-text" id="civil-text"></span>
+      <span class="ca-arrow" aria-hidden="true">→</span>
+    </a>
+
     <div id="banner" class="banner ALL_CLEAR" role="status" aria-live="polite" aria-atomic="true">
       <span class="dot" aria-hidden="true"></span>
       <div>
@@ -343,8 +382,24 @@
     <div id="alerts-bar" class="alerts-bar" hidden>
       <span class="alerts-text" id="alerts-text">🔔 Get a push the moment the storm level rises — even with the app closed.</span>
       <button class="alerts-btn" id="alerts-btn" type="button">Get storm alerts</button>
+      <div class="alerts-prefs" id="alerts-prefs" hidden>
+        <label>Alert me from
+          <select id="pref-level">
+            <option value="WATCH">Watch</option>
+            <option value="WARNING">Warning</option>
+            <option value="IMMINENT">Imminent</option>
+          </select>
+        </label>
+        <label class="pref-quiet"><input type="checkbox" id="pref-quiet" /> Quiet 10pm–7am</label>
+      </div>
     </div>
     <div id="offline-note" class="offline-note" hidden>⚠️ You're offline — showing the last saved update.</div>
+
+    <a class="advisory-link" href="https://www.barbadosweather.org" target="_blank" rel="noopener">
+      <span class="adv-ico" aria-hidden="true">📣</span>
+      <span class="adv-text">Beyond hurricanes, <b>Barbados Met Services</b> issues local advisories — small-craft, heavy-rain/flood, dust. Tap to check what's in effect now.</span>
+      <span class="adv-arrow" aria-hidden="true">→</span>
+    </a>
 
     <nav class="section-nav" aria-label="Sections">
       <a href="#now">Right now</a>
@@ -379,6 +434,7 @@
       <section class="card" id="rainwind">
         <h2>🌧️ Rain &amp; wind — next 24 hours</h2>
         <p class="summary" id="rainwind-summary">Loading outlook…</p>
+        <p class="flood-note" id="flood-note" hidden></p>
         <div class="hours" id="hours"></div>
       </section>
 
@@ -430,6 +486,7 @@
         <p id="replay-label" class="replay-label"></p>
         <div id="briefing" class="briefing">Loading…</div>
         <p id="briefing-source" class="briefing-source"></p>
+        <p class="arrival-note" id="arrival-note" hidden></p>
         <div class="table-wrap">
           <table>
             <thead>
@@ -524,6 +581,8 @@
             <span class="s-ico" aria-hidden="true">🏛️</span><span><b>Barbados Met Services</b><small>Official forecasts &amp; warnings</small></span></a>
           <a class="source" href="http://www.dem.gov.bb" target="_blank" rel="noopener">
             <span class="s-ico" aria-hidden="true">🚨</span><span><b>Dept. of Emergency Management</b><small>Shelters &amp; preparedness</small></span></a>
+          <a class="source" href="https://brb-secondary.capews.com/capews/public/active" target="_blank" rel="noopener">
+            <span class="s-ico" aria-hidden="true">📢</span><span><b>CAP.CAP emergency alerts</b><small>Official DEM civil alerts &amp; app</small></span></a>
           <a class="source" href="https://www.barbadosweather.org/weatherBarResp.php" target="_blank" rel="noopener">
             <span class="s-ico" aria-hidden="true">🌧️</span><span><b>5-day rainfall forecast</b><small>BMS</small></span></a>
           <a class="source" href="https://www.barbadosweather.org/marineBarResp.php" target="_blank" rel="noopener">
@@ -702,7 +761,9 @@
       const bucket = Math.floor(Date.now() / 600000);
       img.onload = () => { fig.hidden = false; };
       img.onerror = () => { fig.hidden = true; };
-      img.src = `${SAT_BASE}1000x1000.jpg?_=${bucket}`;
+      // Smaller image on phones — ~286 KB vs ~950 KB, easier on mobile data.
+      const size = window.innerWidth < 560 ? "500x500" : "1000x1000";
+      img.src = `${SAT_BASE}${size}.jpg?_=${bucket}`;
     }
 
     // Lazily preload the last ~100 minutes of frames (started 20 min back to
@@ -822,6 +883,22 @@
       if ((peak.rainProb ?? 0) < 30) rainText = "Little to no rain expected over the next 24 hours.";
       else rainText = `Showers most likely around ${hourLabel(peak.time)} (${peak.rainProb}% chance).`;
       sum.innerHTML = `<span class="lead">${rainText}</span> Winds ${fromKmh(wlo)}–${fromKmh(whi)} ${wUnit()}${dir}.`;
+
+      // Flash-flood watch from next-24h rainfall total + peak hourly intensity.
+      const total24 = Math.round(h.reduce((a, x) => a + (x.precipMm || 0), 0));
+      const peakHr = h.reduce((mx, x) => Math.max(mx, x.precipMm || 0), 0);
+      let lvl = total24 < 15 ? 0 : total24 < 40 ? 1 : total24 < 75 ? 2 : total24 < 125 ? 3 : 4;
+      if (peakHr >= 20 && lvl > 0 && lvl < 4) lvl++; // intense bursts flood faster
+      const fn = document.getElementById("flood-note");
+      if (lvl === 0) { fn.hidden = true; }
+      else {
+        const msg = ["", "minor ponding possible in low-lying spots",
+          "flash flooding possible in low-lying areas",
+          "flash flooding likely — avoid flood-prone roads",
+          "dangerous flooding — stay off the roads if you can"][lvl];
+        fn.hidden = false;
+        fn.innerHTML = `<span class="chance ${lvl <= 2 ? "medium" : "high"}">Flood watch</span> About ${total24} mm of rain expected over 24h — ${msg}.`;
+      }
     }
 
     function renderSea(o, hourlyUv) {
@@ -990,7 +1067,38 @@
       src.innerHTML = `NHC Tropical Weather Outlook${when ? " · issued " + when : ""} · <a href="${t.url}" target="_blank" rel="noopener">read the full outlook</a>`;
     }
 
+    const haversineKm = (a, b, c, d) => {
+      const R = 6371, p = Math.PI / 180;
+      const x = Math.sin((c - a) * p / 2) ** 2 + Math.cos(a * p) * Math.cos(c * p) * Math.sin((d - b) * p / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(x));
+    };
+    // Earliest time a storm's 34-kt wind field reaches the island, from the
+    // forecast track + wind radii (tropical-storm-force arrival).
+    function windsArrival(s) {
+      const isl = s.island;
+      let best = null;
+      for (const st of s.storms || []) {
+        if (st.radii34Km && haversineKm(isl.lat, isl.lon, st.lat, st.lon) <= st.radii34Km) return { hours: 0, name: st.name };
+        for (const p of st.forecastPoints || []) {
+          const r = p.radii34Km ?? st.radii34Km;
+          if (r && Number.isFinite(p.lat) && haversineKm(isl.lat, isl.lon, p.lat, p.lon) <= r) {
+            if (!best || p.hoursFromIssuance < best.hours) best = { hours: p.hoursFromIssuance, name: st.name };
+            break;
+          }
+        }
+      }
+      return best;
+    }
+
     function renderStorms(s) {
+      const an = document.getElementById("arrival-note");
+      const arr = windsArrival(s);
+      if (arr) {
+        const when = arr.hours === 0 ? "are arriving now"
+          : `could reach us by about ${timeLabel(new Date(Date.parse(s.updatedAt) + arr.hours * 3600000).toISOString())} (~+${arr.hours}h)`;
+        an.hidden = false;
+        an.innerHTML = `<span class="chance high">Winds</span> Tropical-storm-force winds (34&nbsp;kt+) from ${arr.name} ${when}. Finish preparations early.`;
+      } else { an.hidden = true; }
       const passText = (a) => {
         const p = a.pass;
         if (!p || p.kind === "distant") return "";
@@ -1089,8 +1197,23 @@
       }
     }
 
+    function renderCivil(s) {
+      const ca = document.getElementById("civil-alert");
+      const c = s.civilAlert;
+      if (c && c.active) {
+        ca.hidden = false;
+        ca.href = c.url || "https://brb-secondary.capews.com/capews/public/active";
+        const n = c.count || 1;
+        document.getElementById("civil-text").innerHTML =
+          `<b>Official emergency alert${n > 1 ? "s" : ""} in effect.</b> Barbados DEM has ${n > 1 ? n + " active alerts" : "an active alert"} — tap for details on CAP.CAP.`;
+      } else {
+        ca.hidden = true;
+      }
+    }
+
     function render(s) {
       lastStatus = s;
+      renderCivil(s);
       document.getElementById("island").textContent = s.island.name;
       document.getElementById("now-island").textContent = s.island.name;
       document.getElementById("mode").innerHTML = s.mode === "replay" ? "🎬 <b>Replay:</b> Beryl 2024" : "📡 <b>Live:</b> NHC feed";
@@ -1166,8 +1289,19 @@
       const bar = document.getElementById("alerts-bar");
       const text = document.getElementById("alerts-text");
       const btn = document.getElementById("alerts-btn");
+      const prefsBox = document.getElementById("alerts-prefs");
+      const levelSel = document.getElementById("pref-level");
+      const quietBox = document.getElementById("pref-quiet");
       bar.hidden = false;
       const reg = await navigator.serviceWorker.ready;
+
+      // Load saved alert prefs into the controls.
+      const prefs = { minLevel: "WATCH", quiet: false };
+      try { Object.assign(prefs, JSON.parse(localStorage.getItem("hr-alert-prefs") || "{}")); } catch { /* ignore */ }
+      levelSel.value = prefs.minLevel; quietBox.checked = prefs.quiet;
+      const readPrefs = () => ({ minLevel: levelSel.value, quiet: quietBox.checked });
+      const savePrefs = (p) => { try { localStorage.setItem("hr-alert-prefs", JSON.stringify(p)); } catch { /* ignore */ } };
+      const postSub = (sub) => fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, ...readPrefs() }) });
 
       const setState = (on) => {
         bar.classList.toggle("on", on);
@@ -1176,6 +1310,7 @@
           : "🔔 Get a push the moment the storm level rises — even with the app closed.";
         btn.textContent = on ? "Turn off" : "Get storm alerts";
         btn.dataset.on = on ? "1" : "";
+        prefsBox.hidden = false;
       };
       if (Notification.permission === "denied") {
         text.textContent = "Notifications are blocked. Turn them on in your browser settings to get storm alerts.";
@@ -1183,6 +1318,17 @@
         return;
       }
       setState(Boolean(await reg.pushManager.getSubscription()));
+
+      // Changing prefs persists, and updates the server if already subscribed.
+      const onPrefChange = async () => {
+        savePrefs(readPrefs());
+        if (btn.dataset.on) {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) await postSub(sub);
+        }
+      };
+      levelSel.onchange = onPrefChange;
+      quietBox.onchange = onPrefChange;
 
       btn.onclick = async () => {
         btn.disabled = true;
@@ -1198,7 +1344,8 @@
             const perm = await Notification.requestPermission();
             if (perm !== "granted") { text.textContent = "Notifications weren't allowed. You can enable them in browser settings."; return; }
             const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64(key) });
-            await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub) });
+            savePrefs(readPrefs());
+            await postSub(sub);
             setState(true);
           }
         } catch {

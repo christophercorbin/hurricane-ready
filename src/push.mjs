@@ -25,11 +25,20 @@ if (pushEnabled) {
 
 const SUBS_FILE = process.env.SUBS_FILE || "/data/subscriptions.json";
 
+const LEVEL_RANK = { ALL_CLEAR: 0, WATCH: 1, WARNING: 2, IMMINENT: 3 };
+const normLevel = (l) => (l in LEVEL_RANK ? l : "WATCH");
+
+// Each stored record: { subscription, minLevel, quiet }.
+// Migrates older records that were just a raw PushSubscription.
 function load() {
   try {
     if (existsSync(SUBS_FILE)) {
       const parsed = JSON.parse(readFileSync(SUBS_FILE, "utf-8"));
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((r) => (r && r.subscription ? r : { subscription: r, minLevel: "WATCH", quiet: false }))
+          .filter((r) => r.subscription && typeof r.subscription.endpoint === "string");
+      }
     }
   } catch {
     /* corrupt file -> start clean */
@@ -53,46 +62,70 @@ export const subscriptionCount = () => subs.length;
 
 const MAX_SUBS = Number(process.env.MAX_SUBSCRIPTIONS || 50000);
 
-export function addSubscription(sub) {
+// Barbados is AST (UTC-4, no DST). Overnight quiet window: 22:00–07:00.
+function barbadosNight(d = new Date()) {
+  const h = (d.getUTCHours() - 4 + 24) % 24;
+  return h >= 22 || h < 7;
+}
+
+export function addSubscription(sub, prefs = {}) {
   // Require a well-formed PushSubscription (endpoint + encryption keys).
   if (!sub || typeof sub.endpoint !== "string" || !sub.keys ||
       typeof sub.keys.p256dh !== "string" || typeof sub.keys.auth !== "string") {
     return false;
   }
-  if (subs.some((s) => s.endpoint === sub.endpoint)) return true;
+  const record = {
+    subscription: sub,
+    minLevel: normLevel(prefs.minLevel),
+    quiet: Boolean(prefs.quiet),
+  };
+  const existing = subs.find((r) => r.subscription.endpoint === sub.endpoint);
+  if (existing) { existing.minLevel = record.minLevel; existing.quiet = record.quiet; save(); return true; }
   if (subs.length >= MAX_SUBS) return false; // bound storage growth
-  subs.push(sub);
+  subs.push(record);
   save();
   return true;
 }
 
 export function removeSubscription(endpoint) {
   const before = subs.length;
-  subs = subs.filter((s) => s.endpoint !== endpoint);
+  subs = subs.filter((r) => r.subscription.endpoint !== endpoint);
   if (subs.length !== before) save();
 }
 
-// Fan out one notification to every subscriber. Expired subscriptions
+// Should this subscriber get a push for `level`?  Honour their minimum level;
+// overnight-quiet suppresses only WATCH (Warning/Imminent always go through);
+// the ALL_CLEAR stand-down goes to everyone (but still respects quiet).
+function wants(rec, level) {
+  if (level === "ALL_CLEAR") return !(rec.quiet && barbadosNight());
+  if (LEVEL_RANK[level] < LEVEL_RANK[rec.minLevel]) return false;
+  if (rec.quiet && level === "WATCH" && barbadosNight()) return false;
+  return true;
+}
+
+// Fan out one notification to matching subscribers. Expired subscriptions
 // (410 Gone / 404) are pruned so the list self-heals.
 export async function sendPushToAll(payload) {
-  if (!pushEnabled || subs.length === 0) return { sent: 0, pruned: 0 };
+  const level = normLevel(payload && payload.level);
+  if (!pushEnabled || subs.length === 0) return { sent: 0, pruned: 0, skipped: 0 };
   const body = JSON.stringify(payload);
   const dead = [];
-  let sent = 0;
+  let sent = 0, skipped = 0;
   await Promise.all(
-    subs.map(async (s) => {
+    subs.map(async (rec) => {
+      if (!wants(rec, level)) { skipped += 1; return; }
       try {
-        await webpush.sendNotification(s, body, { TTL: 3600, urgency: "high" });
+        await webpush.sendNotification(rec.subscription, body, { TTL: 3600, urgency: "high" });
         sent += 1;
       } catch (err) {
-        if (err.statusCode === 410 || err.statusCode === 404) dead.push(s.endpoint);
+        if (err.statusCode === 410 || err.statusCode === 404) dead.push(rec.subscription.endpoint);
         else console.warn(`Push send failed (${err.statusCode || err.message})`);
       }
     })
   );
   if (dead.length) {
-    subs = subs.filter((s) => !dead.includes(s.endpoint));
+    subs = subs.filter((r) => !dead.includes(r.subscription.endpoint));
     save();
   }
-  return { sent, pruned: dead.length };
+  return { sent, pruned: dead.length, skipped };
 }
