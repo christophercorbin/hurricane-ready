@@ -7,12 +7,17 @@
   "scripts": {
     "start": "node src/server.mjs",
     "demo": "REPLAY=1 DISABLE_AI=1 STATE_FILE=./data/state.json node src/server.mjs",
-    "test": "node --test test/threat.test.mjs test/advisory.test.mjs test/tropical.test.mjs"
+    "test": "node --test test/threat.test.mjs test/advisory.test.mjs test/tropical.test.mjs test/push.test.mjs",
+    "test:e2e": "playwright test"
   },
   "engines": { "node": ">=22" },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.0.0",
     "@aws-sdk/client-sesv2": "^3.0.0",
-    "@aws-sdk/client-sns": "^3.0.0"
+    "@aws-sdk/client-sns": "^3.0.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
   }
 }

@@ -11,6 +11,11 @@
   <!-- Icons -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Crect%20width='100'%20height='100'%20rx='22'%20fill='%230b1220'/%3E%3Ctext%20x='50'%20y='50'%20font-size='62'%20text-anchor='middle'%20dominant-baseline='central'%3E%F0%9F%8C%80%3C/text%3E%3C/svg%3E" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Hurricane-Ready" />
 
   <!-- Open Graph / Twitter -->
   <meta property="og:type" content="website" />
@@ -43,7 +48,38 @@
       --watch: #eab308;     --watch-soft: rgba(234,179,8,0.14);
       --warning: #f97316;   --warning-soft: rgba(249,115,22,0.15);
       --imminent: #ef4444;  --imminent-soft: rgba(239,68,68,0.16);
+      --soft-text: #dbe6f5;
     }
+    :root[data-theme="light"] {
+      --bg: #eef3fa;
+      --bg-grad: radial-gradient(1200px 600px at 80% -10%, #dce7f6 0%, #eef3fa 60%);
+      --card: #ffffff;
+      --card-2: #f1f5fb;
+      --border: #d4deeb;
+      --text: #13233f;
+      --muted: #5a6a85;
+      --accent: #0369a1;
+      --soft-text: #2b3a55;
+      --all-clear-soft: rgba(22,163,74,0.12);
+      --watch-soft: rgba(234,179,8,0.18);
+      --warning-soft: rgba(249,115,22,0.14);
+      --imminent-soft: rgba(239,68,68,0.1);
+    }
+    /* Light-mode darker text for the otherwise-bright semantic colours. */
+    :root[data-theme="light"] .ALL_CLEAR .b-title, :root[data-theme="light"] .chip.ALL_CLEAR, :root[data-theme="light"] .chance.low { color: #15803d; }
+    :root[data-theme="light"] .WATCH .b-title, :root[data-theme="light"] .chip.WATCH, :root[data-theme="light"] .uv.moderate, :root[data-theme="light"] .chance.medium { color: #a16207; }
+    :root[data-theme="light"] .WARNING .b-title, :root[data-theme="light"] .chip.WARNING, :root[data-theme="light"] .uv.high { color: #c2410c; }
+    :root[data-theme="light"] .IMMINENT .b-title, :root[data-theme="light"] .chip.IMMINENT, :root[data-theme="light"] .chance.high, :root[data-theme="light"] .name-chip.active, :root[data-theme="light"] .emerg-num b { color: #b91c1c; }
+    :root[data-theme="light"] .uv.low { color: #15803d; }
+    :root[data-theme="light"] .disclaimer { color: #854d0e; }
+    :root[data-theme="light"] .name-chip.next { color: #0369a1; }
+
+    .settings-wrap { position: relative; }
+    .settings-btn { background: rgba(255,255,255,0.04); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; width: 32px; height: 32px; font-size: 1rem; cursor: pointer; line-height: 1; }
+    .settings-btn:hover { color: var(--text); border-color: var(--accent); }
+    .settings-panel { position: absolute; right: 0; top: 38px; z-index: 700; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 170px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+    .settings-panel label { font-size: 0.78rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.25rem; }
+    .settings-panel select { background: var(--card-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.4rem; font-size: 0.85rem; }
     * { box-sizing: border-box; margin: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -91,6 +127,15 @@
     .IMMINENT .dot { background: var(--imminent); animation: pulse 1.4s infinite; } .IMMINENT .b-title { color: #fca5a5; }
     @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); } 50% { box-shadow: 0 0 0 9px rgba(239,68,68,0); } }
 
+    /* Alerts opt-in + offline */
+    .alerts-bar { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.3); border-radius: 14px; padding: 0.7rem 1rem; margin-bottom: 0.9rem; }
+    .alerts-text { font-size: 0.88rem; color: var(--soft-text); flex: 1; min-width: 200px; }
+    .alerts-btn { background: var(--accent); color: #04263a; border: none; border-radius: 10px; padding: 0.5rem 0.95rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .alerts-btn:hover { filter: brightness(1.08); }
+    .alerts-bar.on { background: rgba(22,163,74,0.1); border-color: rgba(22,163,74,0.35); }
+    .alerts-bar.on .alerts-btn { background: transparent; color: var(--muted); border: 1px solid var(--border); font-weight: 600; }
+    .offline-note { background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); color: #fde68a; border-radius: 12px; padding: 0.55rem 0.9rem; margin-bottom: 0.9rem; font-size: 0.85rem; }
+
     /* Sticky section nav */
     .section-nav {
       position: sticky; top: 0; z-index: 600; margin: 0 -1.1rem 1.1rem; padding: 0.5rem 1.1rem;
@@ -110,7 +155,7 @@
       font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
       padding: 0.85rem 1.1rem 0.55rem; display: flex; align-items: center; gap: 0.45rem; font-weight: 700;
     }
-    .summary { padding: 0.1rem 1.1rem 0.6rem; font-size: 0.98rem; color: #dbe6f5; line-height: 1.6; }
+    .summary { padding: 0.1rem 1.1rem 0.6rem; font-size: 0.98rem; color: var(--soft-text); line-height: 1.6; }
     .summary .lead { color: var(--text); font-weight: 700; }
 
     /* Now / current conditions */
@@ -123,6 +168,7 @@
     .wx-tile .lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .wx-tile .val { font-size: 1.1rem; font-weight: 700; margin-top: 0.15rem; }
     .wx-obs { font-size: 0.72rem; color: var(--muted); padding: 0 1.1rem 1.1rem; }
+    .panel-age { font-size: 0.7rem; color: var(--muted); padding: 0 1.1rem 1rem; }
 
     /* 7-day forecast */
     .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; padding: 0.3rem 1.1rem 1.1rem; }
@@ -175,7 +221,7 @@
     .explain summary::-webkit-details-marker { display: none; }
     .explain summary::before { content: "ⓘ "; }
     .explain[open] summary { border-bottom: 1px solid var(--border); }
-    .explain .ex-body { padding: 0.7rem 0.85rem; font-size: 0.85rem; color: #cdd9ec; line-height: 1.6; }
+    .explain .ex-body { padding: 0.7rem 0.85rem; font-size: 0.85rem; color: var(--soft-text); line-height: 1.6; }
     .explain .ex-body b { color: var(--text); font-weight: 700; }
 
     /* Active systems */
@@ -192,7 +238,7 @@
     .empty { padding: 1.6rem 1.1rem; text-align: center; color: var(--muted); font-size: 0.9rem; }
     .empty .sun { font-size: 1.6rem; display: block; margin-bottom: 0.3rem; }
 
-    .briefing { padding: 0.2rem 1.1rem 0.5rem; white-space: pre-wrap; line-height: 1.65; font-size: 0.92rem; color: #dbe6f5; }
+    .briefing { padding: 0.2rem 1.1rem 0.5rem; white-space: pre-wrap; line-height: 1.65; font-size: 0.92rem; color: var(--soft-text); }
     .briefing-source { font-size: 0.7rem; color: var(--muted); padding: 0 1.1rem 1rem; }
     .replay-label { padding: 0 1.1rem 0.5rem; font-size: 0.8rem; color: var(--accent); font-style: italic; }
 
@@ -231,7 +277,20 @@
     .prep-col h3 { font-size: 0.92rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.45rem; }
     .prep-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
     .prep-col ul { margin: 0; padding-left: 1.1rem; }
-    .prep-col li { font-size: 0.85rem; color: #cdd9ec; margin-bottom: 0.4rem; line-height: 1.5; }
+    .prep-col li { font-size: 0.85rem; color: var(--soft-text); margin-bottom: 0.4rem; line-height: 1.5; }
+
+    /* Emergency numbers + shelters */
+    .emerg { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; padding: 0.3rem 1.1rem 0.8rem; }
+    .emerg-num { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; border: 1px solid rgba(239,68,68,0.35); background: var(--imminent-soft); border-radius: 12px; padding: 0.7rem 0.5rem; text-decoration: none; }
+    .emerg-num b { font-size: 1.35rem; font-weight: 800; color: #fca5a5; letter-spacing: 0.01em; }
+    .emerg-num small { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .emerg-num:hover { border-color: #f87171; }
+    .shelter-pick { padding: 0.2rem 1.1rem 0.7rem; }
+    .shelter-pick select { width: 100%; max-width: 360px; background: var(--card-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.7rem; font-size: 0.92rem; }
+    .shelter-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.45rem; padding: 0 1.1rem 0.6rem; }
+    .shelter { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; border: 1px solid var(--border); border-radius: 11px; padding: 0.55rem 0.75rem; background: var(--card-2); }
+    .s-name { font-size: 0.86rem; color: var(--text); }
+    .s-wc { font-size: 1rem; flex-shrink: 0; }
 
     /* Official sources */
     .sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.5rem; padding: 0.3rem 1.1rem 1.2rem; }
@@ -256,6 +315,20 @@
       <div class="header-spacer"></div>
       <span class="pill" id="mode"></span>
       <span class="pill" id="updated"></span>
+      <div class="settings-wrap">
+        <button id="settings-btn" class="settings-btn" type="button" aria-label="Settings" aria-expanded="false">⚙</button>
+        <div id="settings-panel" class="settings-panel" hidden>
+          <label>Temperature
+            <select id="set-temp"><option value="C">°C</option><option value="F">°F</option></select>
+          </label>
+          <label>Wind speed
+            <select id="set-wind"><option value="kmh">km/h</option><option value="kt">knots</option><option value="mph">mph</option></select>
+          </label>
+          <label>Theme
+            <select id="set-theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select>
+          </label>
+        </div>
+      </div>
     </header>
 
     <div id="banner" class="banner ALL_CLEAR" role="status" aria-live="polite" aria-atomic="true">
@@ -267,6 +340,12 @@
       <div class="b-storms" id="banner-storms"></div>
     </div>
 
+    <div id="alerts-bar" class="alerts-bar" hidden>
+      <span class="alerts-text" id="alerts-text">🔔 Get a push the moment the storm level rises — even with the app closed.</span>
+      <button class="alerts-btn" id="alerts-btn" type="button">Get storm alerts</button>
+    </div>
+    <div id="offline-note" class="offline-note" hidden>⚠️ You're offline — showing the last saved update.</div>
+
     <nav class="section-nav" aria-label="Sections">
       <a href="#now">Right now</a>
       <a href="#forecast">7-day</a>
@@ -274,6 +353,7 @@
       <a href="#sea">Beach &amp; sea</a>
       <a href="#radar">Radar</a>
       <a href="#storms">Storms</a>
+      <a href="#shelters">Shelters</a>
       <a href="#prep">Get ready</a>
     </nav>
 
@@ -293,6 +373,7 @@
         <h2>📅 Next 7 days</h2>
         <p class="summary" id="forecast-summary"></p>
         <div class="days" id="days"><p class="summary">Loading forecast…</p></div>
+        <p class="panel-age" id="forecast-age"></p>
       </section>
 
       <section class="card" id="rainwind">
@@ -307,6 +388,9 @@
         <div class="wx-grid" id="sea-grid"></div>
         <h2>☀️ Sun &amp; moon</h2>
         <div class="wx-grid" id="sky-grid"></div>
+        <h2>🌫️ Air &amp; tide</h2>
+        <p class="summary" id="air-summary">Loading air &amp; tide…</p>
+        <div class="wx-grid" id="air-grid"></div>
       </section>
 
       <section class="card" id="radar">
@@ -319,7 +403,7 @@
         </div>
         <details class="explain">
           <summary>What am I looking at?</summary>
-          <div class="ex-body">This map shows <b>rain happening right now</b>, picked up by weather radar. Green is light rain, yellow and orange are heavier, and red is a downpour or thunderstorm. The blue dot is Barbados. Press <b>▶ Play radar</b> to watch where the rain has moved over the last hour — that's the direction it's heading.</div>
+          <div class="ex-body">This map shows <b>rain happening right now</b>, picked up by weather radar. Green is light rain, yellow and orange are heavier, and red is a downpour or thunderstorm. The blue dot is Barbados. Press <b>▶ Play radar</b> to watch where the rain has moved over the last hour — that's the direction it's heading. When a storm is active, the <b>amber cone</b> shows where its centre could track over the next 5 days (the NHC forecast plus its average error) — note the storm's winds and rain reach well beyond the thin line.</div>
         </details>
 
         <figure class="sat" id="sat" hidden>
@@ -374,6 +458,27 @@
 
         <h2>🕐 Level history</h2>
         <div id="history" class="history">—</div>
+      </section>
+
+      <section class="card" id="shelters">
+        <h2>🆘 Emergency numbers</h2>
+        <div class="emerg">
+          <a class="emerg-num" href="tel:211"><b>211</b><small>Police</small></a>
+          <a class="emerg-num" href="tel:311"><b>311</b><small>Fire</small></a>
+          <a class="emerg-num" href="tel:511"><b>511</b><small>Ambulance</small></a>
+          <a class="emerg-num" href="tel:+12464278819"><b>427-8819</b><small>Coast Guard</small></a>
+          <a class="emerg-num" href="tel:+12464387575"><b>438-7575</b><small>DEM</small></a>
+        </div>
+
+        <h2>🏠 Find a hurricane shelter</h2>
+        <p class="hist-intro">Pick your parish to see official Category&nbsp;1 shelters near you.</p>
+        <div class="shelter-pick">
+          <select id="parish-select" aria-label="Choose your parish">
+            <option value="">Choose your parish…</option>
+          </select>
+        </div>
+        <div class="shelter-list" id="shelter-list"></div>
+        <p class="tropical-src">Source: Barbados DEM Category&nbsp;1 shelter list (2026 booklet). Shelters and openings can change — always confirm with DEM before travelling. <a href="https://dem.gov.bb/public/downloads/SHELTERBOOKLET2026PUBLIC.pdf" target="_blank" rel="noopener">Official shelter booklet (PDF)</a> · ♿ = wheelchair access.</p>
       </section>
 
       <section class="card" id="prep">
@@ -453,6 +558,40 @@
     };
     const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+    // ---- Settings: units + theme, remembered in localStorage ----
+    const settings = { temp: "C", wind: "kmh", theme: "auto" };
+    function loadSettings() { try { Object.assign(settings, JSON.parse(localStorage.getItem("hr-settings") || "{}")); } catch { /* ignore */ } }
+    function saveSettings() { try { localStorage.setItem("hr-settings", JSON.stringify(settings)); } catch { /* ignore */ } }
+    const prefersDark = () => !window.matchMedia || window.matchMedia("(prefers-color-scheme: dark)").matches;
+    function applyTheme() {
+      const eff = settings.theme === "auto" ? (prefersDark() ? "dark" : "light") : settings.theme;
+      document.documentElement.setAttribute("data-theme", eff);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", eff === "light" ? "#eef3fa" : "#0b1220");
+    }
+    // Data is stored in °C and km/h; current-conditions wind is in knots.
+    const toTemp = (c) => c == null ? null : settings.temp === "F" ? Math.round(c * 9 / 5 + 32) : Math.round(c);
+    const tUnit = () => settings.temp === "F" ? "°F" : "°C";
+    const fmtTemp = (c) => c == null ? "—" : `${toTemp(c)}${tUnit()}`;
+    const fmtDeg = (c) => c == null ? "—" : `${toTemp(c)}°`;
+    const wUnit = () => settings.wind === "kt" ? "kt" : settings.wind === "mph" ? "mph" : "km/h";
+    const fromKmh = (k) => k == null ? null : settings.wind === "kt" ? Math.round(k / 1.852) : settings.wind === "mph" ? Math.round(k / 1.609) : Math.round(k);
+    const fromKt = (kt) => kt == null ? null : fromKmh(kt * 1.852);
+
+    let lastStatus = null;
+    function initSettings() {
+      loadSettings();
+      applyTheme();
+      const t = document.getElementById("set-temp"), w = document.getElementById("set-wind"), th = document.getElementById("set-theme");
+      t.value = settings.temp; w.value = settings.wind; th.value = settings.theme;
+      const btn = document.getElementById("settings-btn"), panel = document.getElementById("settings-panel");
+      btn.addEventListener("click", (e) => { e.stopPropagation(); const open = panel.hidden; panel.hidden = !open; btn.setAttribute("aria-expanded", String(open)); });
+      document.addEventListener("click", (e) => { if (!panel.hidden && !panel.contains(e.target) && e.target !== btn) { panel.hidden = true; btn.setAttribute("aria-expanded", "false"); } });
+      const onChange = () => { settings.temp = t.value; settings.wind = w.value; settings.theme = th.value; saveSettings(); applyTheme(); if (lastStatus) render(lastStatus); };
+      t.onchange = onChange; w.onchange = onChange; th.onchange = onChange;
+      if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (settings.theme === "auto") applyTheme(); });
+    }
+
     function icon(code) {
       if (code === 0) return "☀️";
       if (code === 1 || code === 2) return "🌤️";
@@ -467,7 +606,11 @@
     const uvWord = (uv) => uv == null ? "—" : uv < 3 ? "Low" : uv < 6 ? "Moderate" : uv < 8 ? "High" : uv < 11 ? "Very high" : "Extreme";
     const uvClass = (uv) => uv == null ? "low" : uv < 3 ? "low" : uv < 6 ? "moderate" : uv < 8 ? "high" : "extreme";
     const seaWord = (m) => m == null ? "—" : m < 1 ? "Calm" : m < 1.5 ? "Slight" : m < 2.5 ? "Moderate" : m < 4 ? "Rough" : "Very rough";
-    const windWordKt = (kt) => kt < 7 ? "light" : kt < 16 ? "gentle" : kt < 22 ? "breezy" : kt < 34 ? "fresh" : "strong";
+    const aqiWord = (v) => v == null ? "—" : v <= 50 ? "Good" : v <= 100 ? "Moderate" : v <= 150 ? "Unhealthy (sensitive)" : v <= 200 ? "Unhealthy" : v <= 300 ? "Very unhealthy" : "Hazardous";
+    const aqiClass = (v) => v == null ? "low" : v <= 50 ? "low" : v <= 100 ? "medium" : "high";
+    const hazeWord = (pm10) => pm10 == null ? "—" : pm10 < 30 ? "Clear" : pm10 < 55 ? "Slight haze" : pm10 < 110 ? "Hazy" : pm10 < 180 ? "Thick dust" : "Severe dust";
+    const hazeClass = (pm10) => pm10 == null ? "low" : pm10 < 55 ? "low" : pm10 < 110 ? "medium" : "high";
+    const windWordKt = (kt) => kt == null ? "light" : kt < 7 ? "light" : kt < 16 ? "gentle" : kt < 22 ? "breezy" : kt < 34 ? "fresh" : "strong";
     // Turn WMO descriptions into a natural adjective for "it's 22°C and ___".
     const feel = (code, desc) =>
       code >= 95 ? "stormy" :
@@ -617,43 +760,45 @@
       if (!w) { el.textContent = "Current conditions are unavailable right now."; return; }
       document.getElementById("wx-now").hidden = false;
       document.getElementById("wx-grid").hidden = false;
-      document.getElementById("wx-temp").textContent = w.tempC + "°C";
+      document.getElementById("wx-temp").textContent = fmtTemp(w.tempC);
       document.getElementById("wx-desc").textContent = w.description;
-      document.getElementById("wx-feels").textContent = "Feels like " + w.feelsLikeC + "°C";
+      document.getElementById("wx-feels").textContent = "Feels like " + fmtTemp(w.feelsLikeC);
       document.getElementById("wx-grid").innerHTML = `
-        <div class="wx-tile"><div class="lbl">Wind</div><div class="val">${w.windKt} kt ${w.windFrom}</div></div>
-        <div class="wx-tile"><div class="lbl">Gusts</div><div class="val">${w.gustKt} kt</div></div>
+        <div class="wx-tile"><div class="lbl">Wind</div><div class="val">${fromKt(w.windKt)} ${wUnit()} ${w.windFrom}</div></div>
+        <div class="wx-tile"><div class="lbl">Gusts</div><div class="val">${fromKt(w.gustKt)} ${wUnit()}</div></div>
         <div class="wx-tile"><div class="lbl">Humidity</div><div class="val">${w.humidity}%</div></div>
         <div class="wx-tile"><div class="lbl">Rain</div><div class="val">${w.precipMm} mm</div></div>`;
       document.getElementById("wx-obs").textContent =
-        "Observed " + new Date(w.observedAt + "Z").toUTCString().slice(5, 22) + " UTC · Open-Meteo";
+        "Observed " + agoText(w.observedAt + "Z") + " · Open-Meteo";
       const rain = w.precipMm > 0 ? " Light rain is falling." : "";
       const today = s.outlook && s.outlook.daily && s.outlook.daily[0];
       let todayClause = "";
       if (today) {
         const rp = today.rainProb ?? 0;
         const rainPhrase = rp >= 60 ? "showers likely" : rp >= 30 ? "a chance of showers" : "mostly dry";
-        todayClause = ` Today: high ${today.maxC}°C, ${rainPhrase}.`;
+        todayClause = ` Today: high ${fmtTemp(today.maxC)}, ${rainPhrase}.`;
       }
-      el.innerHTML = `<span class="lead">It's ${w.tempC}°C and ${feel(w.code, w.description)}</span>, ` +
+      el.innerHTML = `<span class="lead">It's ${fmtTemp(w.tempC)} and ${feel(w.code, w.description)}</span>, ` +
         `with a ${windWordKt(w.windKt)} ${w.windFrom} breeze.${rain}${todayClause}`;
     }
 
     function renderForecast(o) {
       const wrap = document.getElementById("days");
-      if (!o || !o.daily || !o.daily.length) { wrap.innerHTML = '<p class="summary">Forecast unavailable right now.</p>'; return; }
+      const age = document.getElementById("forecast-age");
+      age.textContent = o && o.generatedAt ? "Updated " + agoText(o.generatedAt) + " · Open-Meteo" : "";
+      if (!o || !o.daily || !o.daily.length) { wrap.innerHTML = '<p class="summary">Forecast unavailable right now.</p>'; document.getElementById("forecast-summary").textContent = ""; return; }
       wrap.innerHTML = o.daily.map((d, idx) => {
         const dow = idx === 0 ? "Today" : DOW[new Date(d.date + "T00:00").getDay()];
         const rain = d.rainProb != null ? `<div class="rain">${d.rainProb}%</div>` : "";
         return `<div class="day"><div class="dow">${dow}</div><div class="ico" aria-hidden="true">${icon(d.code)}</div>
-          <div><span class="hi">${d.maxC}°</span> <span class="lo">${d.minC}°</span></div>${rain}</div>`;
+          <div><span class="hi">${fmtDeg(d.maxC)}</span> <span class="lo">${fmtDeg(d.minC)}</span></div>${rain}</div>`;
       }).join("");
       const wet = o.daily.filter(d => (d.rainProb ?? 0) >= 50).length;
       const hi = Math.max(...o.daily.map(d => d.maxC));
       const lo = Math.min(...o.daily.map(d => d.minC));
-      const temps = `Temperatures ${lo}–${hi}°C.`;
+      const temps = `Temperatures ${toTemp(lo)}–${toTemp(hi)}${tUnit()}.`;
       let lead, rest;
-      if (wet === 0) { lead = "Mostly settled week ahead."; rest = ` Highs around ${hi}°C, lows near ${lo}°C, with little rain expected.`; }
+      if (wet === 0) { lead = "Mostly settled week ahead."; rest = ` Highs around ${fmtTemp(hi)}, lows near ${fmtTemp(lo)}, with little rain expected.`; }
       else if (wet === 7) { lead = "A wet week ahead."; rest = ` Rain is likely every day. ${temps}`; }
       else if (wet >= 4) { lead = "A wet week."; rest = ` ${wet} of the next 7 days look rainy. ${temps}`; }
       else { lead = "A mostly fine week."; rest = ` Just ${wet} wet ${wet === 1 ? "day" : "days"} ahead. ${temps}`; }
@@ -667,7 +812,7 @@
       const h = o.hourly;
       wrap.innerHTML = h.filter((_, i) => i % 2 === 0).map(x => `
         <div class="hr"><div class="t">${hourLabel(x.time)}</div><div class="ico" aria-hidden="true">${icon(x.code)}</div>
-          <div class="r">${x.rainProb ?? 0}%</div><div class="w">${x.windKmh} km/h</div></div>`).join("");
+          <div class="r">${x.rainProb ?? 0}%</div><div class="w">${fromKmh(x.windKmh)} ${wUnit()}</div></div>`).join("");
       let peak = h[0];
       for (const x of h) if ((x.rainProb ?? 0) > (peak.rainProb ?? 0)) peak = x;
       const winds = h.map(x => x.windKmh);
@@ -676,7 +821,7 @@
       let rainText;
       if ((peak.rainProb ?? 0) < 30) rainText = "Little to no rain expected over the next 24 hours.";
       else rainText = `Showers most likely around ${hourLabel(peak.time)} (${peak.rainProb}% chance).`;
-      sum.innerHTML = `<span class="lead">${rainText}</span> Winds ${wlo}–${whi} km/h${dir}.`;
+      sum.innerHTML = `<span class="lead">${rainText}</span> Winds ${fromKmh(wlo)}–${fromKmh(whi)} ${wUnit()}${dir}.`;
     }
 
     function renderSea(o, hourlyUv) {
@@ -698,6 +843,99 @@
       } else {
         sum.innerHTML = `<span class="lead">Sea conditions are unavailable right now.</span>${uvAdvice}`;
       }
+    }
+
+    // Official DEM Category 1 hurricane shelters (2026 booklet). Source:
+    // https://dem.gov.bb/emergency/shelter — review yearly against the booklet.
+    const SHELTERS = [
+      { name: "Blackman and Gollop Primary School", parish: "Christ Church", wc: true },
+      { name: "Christ Church Foundation School", parish: "Christ Church", wc: true },
+      { name: "Dunamis Outreach Ministries (Wesleyan Holiness Church)", parish: "Christ Church", wc: true },
+      { name: "St. Christopher Primary School", parish: "Christ Church", wc: true },
+      { name: "Gordon Walters Primary", parish: "Christ Church", wc: false },
+      { name: "The Lester Vaughn School", parish: "St. Thomas", wc: true },
+      { name: "Hillaby/Turners Hall", parish: "St. Thomas", wc: true },
+      { name: "Hillaby Seventh Day Adventist Church", parish: "St. Andrew", wc: true },
+      { name: "Gordon Greenidge Primary", parish: "St. James", wc: true },
+      { name: "Queen's College", parish: "St. James", wc: true },
+      { name: "The Church of God Orange Hill", parish: "St. James", wc: false },
+      { name: "Ruby Nazarene Church", parish: "St. Philip", wc: true },
+      { name: "Six Roads Seventh Day Adventist Church", parish: "St. Philip", wc: false },
+      { name: "Six Roads Church of Christ", parish: "St. Philip", wc: false },
+      { name: "Hilda Skeene Primary School", parish: "St. Philip", wc: true },
+      { name: "The Lodge School", parish: "St. John", wc: true },
+      { name: "Tamarind Hall Library / Eric Holder Municipal Complex", parish: "St. Joseph", wc: true },
+      { name: "Black Rock Seventh Day Adventist Church", parish: "St. Michael", wc: true },
+      { name: "Combermere School", parish: "St. Michael", wc: false },
+      { name: "Dalkeith Methodist Church", parish: "St. Michael", wc: true },
+      { name: "St. Barnabas Day Care Centre", parish: "St. Michael", wc: false },
+      { name: "Lloyd Erskine Sandiford Centre", parish: "St. Michael", wc: true },
+      { name: "Harrison College", parish: "St. Michael", wc: false },
+      { name: "The University of the West Indies", parish: "St. Michael", wc: true },
+      { name: "Faith Wesleyan Holiness Church", parish: "St. Michael", wc: false },
+      { name: "Connell Town Pentecostal House of Prayer", parish: "St. Lucy", wc: true },
+      { name: "William Donald George Parish Centre (St. Lucy Parish Church)", parish: "St. Lucy", wc: true },
+      { name: "Cuthbert Moore Primary", parish: "St. George", wc: true },
+      { name: "Ellerton Wesleyan Holiness Church", parish: "St. George", wc: true },
+      { name: "Roland Edwards Primary School", parish: "St. Peter", wc: true },
+      { name: "Coleridge and Parry School", parish: "St. Peter", wc: true },
+    ];
+    const PARISH_ORDER = ["Christ Church", "St. Andrew", "St. George", "St. James", "St. John",
+      "St. Joseph", "St. Lucy", "St. Michael", "St. Peter", "St. Philip", "St. Thomas"];
+
+    function initShelters() {
+      const sel = document.getElementById("parish-select");
+      for (const p of PARISH_ORDER) {
+        const count = SHELTERS.filter((s) => s.parish === p).length;
+        if (!count) continue;
+        const o = document.createElement("option");
+        o.value = p; o.textContent = `${p} (${count})`;
+        sel.appendChild(o);
+      }
+      sel.addEventListener("change", () => {
+        renderShelters(sel.value);
+        try { localStorage.setItem("hr-parish", sel.value); } catch { /* ignore */ }
+      });
+      let saved = "";
+      try { saved = localStorage.getItem("hr-parish") || ""; } catch { /* ignore */ }
+      if (saved && PARISH_ORDER.includes(saved)) { sel.value = saved; renderShelters(saved); }
+    }
+
+    function renderShelters(parish) {
+      const el = document.getElementById("shelter-list");
+      if (!parish) { el.innerHTML = ""; return; }
+      el.innerHTML = SHELTERS.filter((s) => s.parish === parish)
+        .map((s) => `<div class="shelter"><span class="s-name">${s.name}</span>${s.wc ? '<span class="s-wc" title="Wheelchair access" aria-label="Wheelchair access">♿</span>' : ""}</div>`)
+        .join("");
+    }
+
+    function renderAir(o) {
+      const grid = document.getElementById("air-grid");
+      const sum = document.getElementById("air-summary");
+      const aq = o && o.airQuality;
+      const tide = o && o.tide;
+      if (!aq && !tide) { sum.textContent = "Air and tide data are unavailable right now."; grid.innerHTML = ""; return; }
+      const tideState = tide ? (tide.rising ? "Rising" : "Falling") : "—";
+      const nextEvent = !tide ? "—"
+        : tide.rising && tide.nextHigh ? "High " + timeLabel(tide.nextHigh.time)
+        : tide.nextLow ? "Low " + timeLabel(tide.nextLow.time) : "—";
+      grid.innerHTML = `
+        <div class="wx-tile"><div class="lbl">Air quality</div><div class="val"><span class="chance ${aq ? aqiClass(aq.usAqi) : "low"}">${aq ? aqiWord(aq.usAqi) : "—"}</span></div></div>
+        <div class="wx-tile"><div class="lbl">Saharan dust</div><div class="val"><span class="chance ${aq ? hazeClass(aq.pm10) : "low"}">${aq ? hazeWord(aq.pm10) : "—"}</span></div></div>
+        <div class="wx-tile"><div class="lbl">Tide</div><div class="val">${tideState}</div></div>
+        <div class="wx-tile"><div class="lbl">Next tide</div><div class="val">${nextEvent}</div></div>`;
+      const parts = [];
+      if (aq) {
+        const aqi = aqiWord(aq.usAqi).toLowerCase();
+        if (aq.pm10 >= 110) parts.push(`<span class="lead">Hazy with Saharan dust.</span> Air quality is ${aqi} — sensitive groups should limit time outdoors.`);
+        else if (aq.pm10 >= 55) parts.push(`<span class="lead">A little Saharan haze about.</span> Air quality is ${aqi}.`);
+        else parts.push(`<span class="lead">Clear air, little dust.</span> Air quality is ${aqi}.`);
+      }
+      if (tide) {
+        parts.push(`Tide is ${tide.rising ? "rising" : "falling"}` +
+          (tide.rising && tide.nextHigh ? ` — high around ${timeLabel(tide.nextHigh.time)}.` : tide.nextLow ? ` — low around ${timeLabel(tide.nextLow.time)}.` : "."));
+      }
+      sum.innerHTML = parts.join(" ");
     }
 
     function renderSunMoon(o) {
@@ -777,12 +1015,61 @@
         .join("<br>") || "No level changes yet";
     }
 
+    // NHC Atlantic track-forecast "cone of uncertainty" radii (nautical miles
+    // at each forecast hour; 2026 table, ~67% of past errors fall inside).
+    const CONE_NM = [[0, 0], [12, 25], [24, 39], [36, 49], [48, 62], [60, 77], [72, 95], [96, 134], [120, 200]];
+    const coneRadiusKm = (h) => {
+      if (h <= 0) return 0;
+      const last = CONE_NM[CONE_NM.length - 1];
+      if (h >= last[0]) return last[1] * 1.852;
+      for (let i = 0; i < CONE_NM.length - 1; i++) {
+        const [h0, r0] = CONE_NM[i], [h1, r1] = CONE_NM[i + 1];
+        if (h >= h0 && h <= h1) return (r0 + (r1 - r0) * ((h - h0) / (h1 - h0))) * 1.852;
+      }
+      return 0;
+    };
+    const _rad = (d) => d * Math.PI / 180, _deg = (r) => r * 180 / Math.PI;
+    function _bearing(a, b) {
+      const p1 = _rad(a[0]), p2 = _rad(b[0]), dl = _rad(b[1] - a[1]);
+      return (_deg(Math.atan2(Math.sin(dl) * Math.cos(p2), Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl))) + 360) % 360;
+    }
+    function _dest(p, brg, km) {
+      const d = km / 6371, t = _rad(brg), p1 = _rad(p[0]), l1 = _rad(p[1]);
+      const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(t));
+      const l2 = l1 + Math.atan2(Math.sin(t) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2));
+      return [_deg(p2), _deg(l2)];
+    }
+    // Build the cone polygon: offset the forecast track left/right by the
+    // error radius at each point (perpendicular to the direction of travel).
+    function coneFor(st) {
+      const pts = (st.forecastPoints ?? []).filter((p) => Number.isFinite(p.lat));
+      if (!pts.length) return null;
+      const verts = [{ lat: st.lat, lon: st.lon, h: 0 }, ...pts.map((p) => ({ lat: p.lat, lon: p.lon, h: p.hoursFromIssuance }))];
+      const left = [], right = [];
+      for (let i = 0; i < verts.length; i++) {
+        const v = [verts[i].lat, verts[i].lon];
+        const prev = verts[i - 1] && [verts[i - 1].lat, verts[i - 1].lon];
+        const next = verts[i + 1] && [verts[i + 1].lat, verts[i + 1].lon];
+        const brg = prev && next ? _bearing(prev, next) : next ? _bearing(v, next) : _bearing(prev, v);
+        const r = coneRadiusKm(verts[i].h);
+        left.push(_dest(v, brg - 90, r));
+        right.push(_dest(v, brg + 90, r));
+      }
+      return left.concat(right.reverse());
+    }
+
     function renderMap(s) {
       if (!map) initMap(s.island);
       layerGroup.clearLayers();
       L.circleMarker([s.island.lat, s.island.lon], { radius: 7, color: "#38bdf8", fillColor: "#38bdf8", fillOpacity: 0.9 })
         .bindTooltip(s.island.name, { permanent: true, direction: "bottom" }).addTo(layerGroup);
       for (const st of s.storms) {
+        // Cone of uncertainty first, so the track and markers sit on top.
+        const cone = coneFor(st);
+        if (cone) {
+          L.polygon(cone, { color: "#fbbf24", weight: 1, opacity: 0.5, fillColor: "#fbbf24", fillOpacity: 0.12 })
+            .bindTooltip(`${st.name}: probable path of the centre (next 5 days)`).addTo(layerGroup);
+        }
         L.circleMarker([st.lat, st.lon], { radius: 10, color: "#f87171", fillColor: "#dc2626", fillOpacity: 0.8 })
           .bindTooltip(`${st.name} (${st.intensityKt} kt)`, { permanent: true, direction: "top" }).addTo(layerGroup);
         L.polyline([[st.lat, st.lon], [s.island.lat, s.island.lon]], { color: "#475569", dashArray: "6 6", weight: 1 }).addTo(layerGroup);
@@ -803,10 +1090,13 @@
     }
 
     function render(s) {
+      lastStatus = s;
       document.getElementById("island").textContent = s.island.name;
       document.getElementById("now-island").textContent = s.island.name;
       document.getElementById("mode").innerHTML = s.mode === "replay" ? "🎬 <b>Replay:</b> Beryl 2024" : "📡 <b>Live:</b> NHC feed";
-      document.getElementById("updated").textContent = s.updatedAt ? new Date(s.updatedAt).toUTCString().slice(5, 22) + " UTC" : "";
+      document.getElementById("updated").textContent = !s.updatedAt ? ""
+        : s.mode === "replay" ? new Date(s.updatedAt).toUTCString().slice(5, 22) + " UTC"
+        : relTime(s.updatedAt);
 
       const banner = document.getElementById("banner");
       banner.className = "banner " + s.level;
@@ -826,6 +1116,7 @@
       renderRainWind(s.outlook, s.weather);
       renderSea(s.outlook);
       renderSunMoon(s.outlook);
+      renderAir(s.outlook);
       renderTropical(s);
       renderStorms(s);
       renderMap(s);
@@ -846,6 +1137,78 @@
       document.querySelectorAll("section[id]").forEach(sec => obs.observe(sec));
     }
 
+    function setOffline(off) { document.getElementById("offline-note").hidden = !off; }
+
+    const agoText = (iso) => {
+      if (!iso) return "";
+      const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+      if (s < 90) return "just now";
+      if (s < 3600) return Math.round(s / 60) + " min ago";
+      if (s < 86400) return Math.round(s / 3600) + " h ago";
+      return new Date(iso).toUTCString().slice(5, 17);
+    };
+    const relTime = (iso) => iso ? "Updated " + agoText(iso) : "";
+
+    const urlB64 = (b64) => {
+      const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+      const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+      return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+    };
+
+    // Show the "Get storm alerts" opt-in only when push is supported AND the
+    // server has VAPID keys configured; wire up subscribe / unsubscribe.
+    async function initAlerts() {
+      if (!("PushManager" in window) || !("Notification" in window)) return;
+      let key;
+      try { const r = await fetch("/api/vapidPublicKey"); if (!r.ok) return; key = (await r.json()).key; }
+      catch { return; }
+      if (!key) return;
+      const bar = document.getElementById("alerts-bar");
+      const text = document.getElementById("alerts-text");
+      const btn = document.getElementById("alerts-btn");
+      bar.hidden = false;
+      const reg = await navigator.serviceWorker.ready;
+
+      const setState = (on) => {
+        bar.classList.toggle("on", on);
+        text.textContent = on
+          ? "✓ Storm alerts are on for this device."
+          : "🔔 Get a push the moment the storm level rises — even with the app closed.";
+        btn.textContent = on ? "Turn off" : "Get storm alerts";
+        btn.dataset.on = on ? "1" : "";
+      };
+      if (Notification.permission === "denied") {
+        text.textContent = "Notifications are blocked. Turn them on in your browser settings to get storm alerts.";
+        btn.hidden = true;
+        return;
+      }
+      setState(Boolean(await reg.pushManager.getSubscription()));
+
+      btn.onclick = async () => {
+        btn.disabled = true;
+        try {
+          if (btn.dataset.on) {
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) {
+              await fetch("/api/unsubscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+              await sub.unsubscribe();
+            }
+            setState(false);
+          } else {
+            const perm = await Notification.requestPermission();
+            if (perm !== "granted") { text.textContent = "Notifications weren't allowed. You can enable them in browser settings."; return; }
+            const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64(key) });
+            await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub) });
+            setState(true);
+          }
+        } catch {
+          text.textContent = "Couldn't change alert settings — please try again.";
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    }
+
     async function refresh(first) {
       try {
         const res = await fetch("/api/status");
@@ -863,12 +1226,21 @@
     // status, so a 60 s UI refresh keeps the dashboard current without
     // hammering the origin.
     const start = () => {
+      initSettings();
       refresh(true);
       setInterval(() => refresh(false), 60000);
       setSatellite();
       setupScrollSpy();
+      initShelters();
       document.getElementById("radar-toggle").addEventListener("click", toggleRadar);
       document.getElementById("sat-toggle").addEventListener("click", toggleSat);
+
+      setOffline(!navigator.onLine);
+      window.addEventListener("online", () => { setOffline(false); refresh(false); });
+      window.addEventListener("offline", () => setOffline(true));
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").then(initAlerts).catch(() => {});
+      }
     };
     if (document.readyState === "complete") start();
     else window.addEventListener("load", start);

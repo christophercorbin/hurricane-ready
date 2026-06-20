@@ -15,18 +15,47 @@ import { fetchTropicalOutlook, ATLANTIC_NAMES_2026, stormsSoFar } from "./tropic
 import { assess } from "./threat.mjs";
 import { generateBriefing } from "./briefing.mjs";
 import { dispatchAlert } from "./notify.mjs";
+import {
+  pushEnabled,
+  vapidPublicKey,
+  addSubscription,
+  removeSubscription,
+  sendPushToAll,
+} from "./push.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dashboardHtml = readFileSync(path.join(here, "../web/index.html"), "utf-8");
 
-// Content types for static assets served out of web/ (favicon, OG image, …).
+const LEVEL_LABEL = { ALL_CLEAR: "All clear", WATCH: "Watch", WARNING: "Warning", IMMINENT: "Imminent" };
+
+// Content types for static assets served out of web/ (favicon, icons, PWA).
 const STATIC_TYPES = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   ".webp": "image/webp",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
 };
+
+// Read a JSON request body (small, with a hard cap) for POST endpoints.
+function readJson(req, limit = 16384) {
+  return new Promise((resolve) => {
+    let data = "";
+    let aborted = false;
+    req.on("data", (chunk) => {
+      data += chunk;
+      if (data.length > limit) { aborted = true; req.destroy(); resolve(null); }
+    });
+    req.on("end", () => {
+      if (aborted) return;
+      try { resolve(JSON.parse(data || "{}")); } catch { resolve(null); }
+    });
+    req.on("error", () => resolve(null));
+  });
+}
 
 // ---------- State (JSON file on a volume) ----------
 
@@ -174,6 +203,18 @@ async function tick() {
       });
       if (results.length > 0) console.log("Dispatch:", JSON.stringify(results));
 
+      // Web push to everyone who opted in from the browser.
+      const rising = assessment.overall !== "ALL_CLEAR";
+      const pushRes = await sendPushToAll({
+        title: `${config.island.name}: ${LEVEL_LABEL[assessment.overall]}`,
+        body: rising
+          ? (status.briefing || "").split("\n")[0]
+          : "Conditions have eased — back to all clear.",
+        level: assessment.overall,
+        url: "/",
+      });
+      if (pushRes.sent || pushRes.pruned) console.log("Push:", JSON.stringify(pushRes));
+
       state.history.push({
         at: timestamp,
         from: state.level,
@@ -227,19 +268,64 @@ const server = createServer((req, res) => {
     return;
   }
   if (req.method === "GET" && req.url === "/healthz") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "ok", mode: status.mode, level: status.level }));
+    // 200 = process is alive (liveness). `dataAgeSeconds` / `stale` let an
+    // external monitor alert on a watcher that's up but no longer updating.
+    const ageS = status.updatedAt ? Math.round((Date.now() - new Date(status.updatedAt).getTime()) / 1000) : null;
+    const staleAfter = (config.replay ? 60 : config.pollMinutes * 60) * 3;
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+    res.end(JSON.stringify({
+      status: "ok",
+      mode: status.mode,
+      level: status.level,
+      updatedAt: status.updatedAt,
+      dataAgeSeconds: ageS,
+      stale: ageS != null && ageS > staleAfter,
+      uptimeSeconds: Math.round(process.uptime()),
+      hasWeather: Boolean(status.weather),
+      hasOutlook: Boolean(status.outlook),
+      hasTropical: Boolean(status.tropical),
+    }));
     return;
   }
-  // Static assets (favicon, social-share image, etc.) served from web/.
+
+  // ----- Web push opt-in -----
+  if (req.method === "GET" && req.url === "/api/vapidPublicKey") {
+    // Always 200 (key is null when push is disabled) so the client can check
+    // quietly without logging a console error.
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+    res.end(JSON.stringify({ key: vapidPublicKey() }));
+    return;
+  }
+  if (req.method === "POST" && req.url === "/api/subscribe") {
+    readJson(req).then((sub) => {
+      const ok = sub && addSubscription(sub);
+      res.writeHead(ok ? 201 : 400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: Boolean(ok) }));
+    });
+    return;
+  }
+  if (req.method === "POST" && req.url === "/api/unsubscribe") {
+    readJson(req).then((body) => {
+      if (body && body.endpoint) removeSubscription(body.endpoint);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    });
+    return;
+  }
+
+  // Static assets (icons, OG image, manifest, service worker) served from web/.
   // Allowlisted extensions + basename-only lookup keeps this free of path
   // traversal — there are no sub-directories of assets to reach.
   if (req.method === "GET" && STATIC_TYPES[path.extname(req.url)]) {
-    const file = path.join(here, "../web", path.basename(req.url));
+    const name = path.basename(req.url);
+    const file = path.join(here, "../web", name);
     if (existsSync(file)) {
+      // The service worker and manifest must update promptly; everything else
+      // (icons, images) can cache for a day.
+      const volatile = name === "sw.js" || name === "manifest.webmanifest";
       res.writeHead(200, {
         "Content-Type": STATIC_TYPES[path.extname(req.url)],
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": volatile ? "no-cache" : "public, max-age=86400",
       });
       res.end(readFileSync(file));
       return;

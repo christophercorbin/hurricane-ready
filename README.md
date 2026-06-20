@@ -4,7 +4,7 @@ An easy-to-read Barbados weather dashboard **and** a hurricane preparedness aler
 
 > **Unofficial project.** Forecasts and threat levels are generated automatically and may be wrong. Always follow official guidance from Barbados Meteorological Services and the Department of Emergency Management.
 
-**Stack:** Node 22 · NOAA/NHC public feeds · Open-Meteo (forecast + marine) · RainViewer radar · NOAA GOES satellite · Claude on Amazon Bedrock · SNS (SMS) · SES (email) · Leaflet · Docker
+**Stack:** Node 22 · NOAA/NHC public feeds · Open-Meteo (forecast + marine) · RainViewer radar · NOAA GOES satellite · Claude on Amazon Bedrock · SNS (SMS) · SES (email) · Web Push · installable PWA · Leaflet · Docker
 
 ## Dashboard
 
@@ -13,12 +13,28 @@ A single scrolling page (sticky section nav) built for a general audience, with 
 - **Right now** — current conditions plus a one-line "today at a glance" summary.
 - **7-day** — daily forecast cards (icon, high/low, rain chance).
 - **Rain & wind** — next-24h outlook in words, with an hourly strip.
-- **Beach & sea** — sea state, wave height, UV, and **sun & moon** (sunrise/sunset, day length, moon phase).
-- **Radar** — live RainViewer rain radar on a Leaflet map (with a play/pause loop), plus a NOAA GOES-East satellite still.
+- **Beach & sea** — sea state, wave height, UV, **sun & moon** (sunrise/sunset, day length, moon phase), and **air & tide** (US AQI, Saharan-dust/haze level, tide state and next high/low).
+- **Radar & satellite** — live RainViewer rain radar on a Leaflet map (play/pause loop), plus a NOAA GOES-East GeoColor satellite view cropped to the eastern Caribbean, marked with Barbados and with its own animated loop. Both have a plain-language "What am I looking at?" explainer for non-technical readers.
 - **Storms & tropics** — active-system threat table, the **NHC Atlantic Tropical Weather Outlook** (areas to watch + 7-day formation chances, parsed from the public TWO feed), this season's **storm-name list** (active/used/next highlighted), the threat-level legend, and level history.
+- **Shelters & emergency** — verified Barbados emergency numbers (one-tap `tel:` links) and a parish-filtered finder for the official **DEM Category 1 hurricane shelters** (with wheelchair-access flags), linking to the current DEM booklet.
 - **Get ready** — a plain-language hurricane-prep checklist (before the season / watch / warning) and an **official-sources hub** linking straight to Barbados Met Services products, DEM, and NHC.
 
-Everyday weather comes from the free [Open-Meteo](https://open-meteo.com) forecast and marine APIs (no key). Tropical data comes from NOAA/NHC public products. Each section degrades gracefully — if a source is unavailable, that panel simply hides.
+A **settings** menu (⚙) remembers your choice of units (°C/°F, km/h / knots / mph) and theme (auto / light / dark). Each panel shows how fresh its data is ("updated X ago") and states clearly when a source is unavailable rather than showing stale silence.
+
+Everyday weather, marine, and air-quality data come from the free [Open-Meteo](https://open-meteo.com) APIs (no key). Tropical data comes from NOAA/NHC public products; the shelter list and emergency numbers come from Barbados DEM. Each section degrades gracefully — if a source is unavailable, that panel simply hides or says so.
+
+## Alerts & offline (installable PWA)
+
+The dashboard is a Progressive Web App: installable to a phone's home screen, and it **works offline** — a service worker caches the app shell and the last `/api/status`, so during a storm (when connectivity drops) it still shows the last guidance and the prep checklist.
+
+A one-tap **"Get storm alerts"** opt-in subscribes the browser to **Web Push** — no phone number, no account. When the threat level changes, the server pushes a notification to every subscriber (even with the app closed). It's entirely optional: set a VAPID keypair to enable it, or leave it off and the button simply hides.
+
+```bash
+npx web-push generate-vapid-keys      # once; put the pair in .env
+# VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT (see .env.example)
+```
+
+Subscriptions persist on the `/data` volume. Expired ones (HTTP 410/404) self-prune on the next send. To test real delivery end-to-end: subscribe in the browser, then run the Beryl replay (`REPLAY=1`) and watch the level climb — each change fires a push.
 
 ## The design rule
 
@@ -90,7 +106,9 @@ The threat engine is fully covered: distances, track projection, every level bou
 
 Two workflows in `.github/workflows/`:
 
-- **CI** (every PR and push): unit tests, then the real thing — builds the image, boots it in replay mode, and asserts the threat ladder actually climbs to IMMINENT and returns to ALL CLEAR via the API, plus a Trivy scan that fails the build on HIGH/CRITICAL vulnerabilities.
+- **CI** (every PR and push): unit tests, then the real thing — builds the image, boots it in replay mode, asserts the threat ladder actually climbs to IMMINENT and returns to ALL CLEAR via the API, and runs a **Playwright frontend smoke test** that loads the live dashboard and asserts every section (forecast, rain & wind, sea, air, storms, shelters, …) is populated with real data and the service worker registers — so a silent UI break is caught in CI, not by users. Plus a Trivy scan that fails the build on HIGH/CRITICAL vulnerabilities.
+
+**Monitoring:** `/healthz` returns liveness plus `dataAgeSeconds` and a `stale` flag (true when the watcher is up but hasn't refreshed in 3+ poll cycles). Point an uptime monitor (UptimeRobot, Pingdom, or a CloudWatch Synthetics canary) at `/healthz` and alert on non-200 or `stale: true`.
 - **Release** (push to main): always publishes the image to GHCR (`ghcr.io/christophercorbin/hurricane-ready`). When the AWS repo variables are set, it additionally assumes a role via OIDC (no stored keys), pushes to ECR, and force-redeploys the ECS service.
 
 To wire an AWS account: `cd infra && tofu apply` there, then set the outputs as GitHub repo variables (`AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY`, and later `ECS_CLUSTER`/`ECS_SERVICE`). Until then the pipeline is fully functional against GHCR — anyone can `docker run ghcr.io/christophercorbin/hurricane-ready`.
