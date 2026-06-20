@@ -19,9 +19,11 @@ test("dashboard renders every section with real data", async ({ page }) => {
   // wait for the first /api/status render to land
   await expect(page.locator("#banner-title")).not.toHaveText("Checking the skies…", { timeout: 15000 });
 
-  // Right now
-  await expect(page.locator("#wx-temp")).not.toHaveText("");
-  await expect(page.locator("#now-summary")).toContainText("It's");
+  // Right now — weather can take a few seconds to fetch from Open-Meteo and
+  // render after the threat banner flips. Default 5s is too tight on the
+  // GH-hosted runner; mirror the 15s budget used for the banner above.
+  await expect(page.locator("#wx-temp")).not.toHaveText("", { timeout: 15000 });
+  await expect(page.locator("#now-summary")).toContainText("It's", { timeout: 15000 });
 
   // 7-day forecast: exactly 7 day cards
   await expect(page.locator("#days .day")).toHaveCount(7);

@@ -22,6 +22,12 @@ jobs:
         run: |
           for f in src/*.mjs test/*.mjs; do node --check "$f"; done
 
+      # test/push.test.mjs imports src/push.mjs which imports web-push;
+      # without an install the require resolves to nothing and the file
+      # silently drops out of the run, leaving a phantom failure.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
       - name: Unit tests (threat engine)
         run: npm test
 
