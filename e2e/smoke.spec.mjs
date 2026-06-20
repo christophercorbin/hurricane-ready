@@ -15,14 +15,15 @@ test("dashboard renders every section with real data", async ({ page }) => {
     }
   });
 
-  // Ask the server what's actually reachable before asserting on UI that
-  // depends on it — Open-Meteo is sometimes blocked from CI runners, but
-  // that's an external-service flake, not a frontend break.
-  const health = await page.evaluate(async () => (await fetch("/healthz")).json());
-
   await page.goto(BASE, { waitUntil: "load" });
   // wait for the first /api/status render to land
   await expect(page.locator("#banner-title")).not.toHaveText("Checking the skies…", { timeout: 15000 });
+
+  // Ask the server what's actually reachable before asserting on UI that
+  // depends on it — Open-Meteo is sometimes blocked from CI runners, but
+  // that's an external-service flake, not a frontend break. Fetched in
+  // page context so the relative URL resolves against BASE.
+  const health = await page.evaluate(async () => (await fetch("/healthz")).json());
 
   // Right now / 7-day / hourly / sea: only assert when the upstream
   // weather + outlook services actually came back.
