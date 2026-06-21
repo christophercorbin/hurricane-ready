@@ -18,6 +18,8 @@ export const ATLANTIC_NAMES_2026 = [
 
 const TWO_URL = "https://www.nhc.noaa.gov/xml/TWOAT.xml";
 const TWO_HUMAN_URL = "https://www.nhc.noaa.gov/text/MIATWOAT.shtml";
+const TWD_URL = "https://www.nhc.noaa.gov/text/MIATWDAT.shtml";
+const TWD_HUMAN_URL = "https://www.nhc.noaa.gov/text/MIATWDAT.shtml";
 
 function decode(s) {
   return s
@@ -119,4 +121,65 @@ export function stormsSoFar(storms) {
     const m = /^al(\d{2})/i.exec(s.id ?? "");
     return m ? Math.max(max, Number(m[1])) : max;
   }, 0);
+}
+
+// ---------- Tropical waves (NHC Tropical Weather Discussion) ----------
+// A tropical wave is a trough in the trade winds — common, not a cyclone, but
+// it brings the showers/gusty winds locals feel. We parse the discussion's
+// "TROPICAL WAVES" section and flag any wave whose axis is near the island.
+
+// Pull the TROPICAL WAVES section out of the discussion's plain text and
+// return each wave's axis longitude (°W) plus the one nearest the island.
+export function parseWaves(text, islandLonW = 59.54, windowDeg = 6) {
+  const start = text.search(/TROPICAL WAVES/i);
+  if (start < 0) return { waves: [], near: null };
+  let section = text.slice(start);
+  const endRel = section.slice(20).search(/\n\s*\.\.\.[A-Z]/); // next "...HEADING..."
+  if (endRel >= 0) section = section.slice(0, endRel + 20);
+
+  const waves = section
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter((p) => /tropical wave/i.test(p) && /along\s+\d{1,3}\s*W/i.test(p))
+    .map((p) => {
+      const m = p.match(/along\s+(\d{1,3})\s*W/i);
+      return { axisLonW: m ? Number(m[1]) : null, text: p };
+    })
+    .filter((w) => w.axisLonW != null);
+
+  let near = null;
+  for (const w of waves) {
+    const d = Math.abs(w.axisLonW - islandLonW);
+    if (d <= windowDeg && (!near || d < Math.abs(near.axisLonW - islandLonW))) near = w;
+  }
+  return { waves, near };
+}
+
+export async function fetchTropicalWaves(islandLon = -59.54) {
+  const islandLonW = Math.abs(islandLon);
+  try {
+    const res = await fetch(TWD_URL, {
+      headers: { "User-Agent": "hurricane-ready (github.com/christophercorbin/hurricane-ready)" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) throw new Error(`TWD ${res.status}`);
+    const html = await res.text();
+    const text = html
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/\r/g, "");
+    const { waves, near } = parseWaves(text, islandLonW);
+    return {
+      count: waves.length,
+      near: Boolean(near),
+      nearAxisLonW: near ? near.axisLonW : null,
+      url: TWD_HUMAN_URL,
+      checkedAt: new Date().toISOString(),
+    };
+  } catch (err) {
+    console.warn(`Tropical waves unavailable (${err.message})`);
+    return null;
+  }
 }

@@ -11,7 +11,7 @@ import { config } from "./config.mjs";
 import { fetchLiveStorms, createReplaySource } from "./nhc.mjs";
 import { fetchAdvisory } from "./advisory.mjs";
 import { fetchCurrentWeather, fetchOutlook } from "./weather.mjs";
-import { fetchTropicalOutlook, ATLANTIC_NAMES_2026, stormsSoFar } from "./tropical.mjs";
+import { fetchTropicalOutlook, fetchTropicalWaves, ATLANTIC_NAMES_2026, stormsSoFar } from "./tropical.mjs";
 import { fetchCivilAlerts } from "./civil.mjs";
 import { assess } from "./threat.mjs";
 import { generateBriefing } from "./briefing.mjs";
@@ -105,6 +105,7 @@ let status = {
   weather: null,
   outlook: null,
   tropical: null,
+  waves: null,
   civilAlert: null,
   seasonNames: ATLANTIC_NAMES_2026,
   stormsSoFar: 0,
@@ -227,13 +228,14 @@ async function tick() {
       saveState(state);
     }
 
-    const [weather, outlook, tropical, civilAlert] = await Promise.all([
+    const [weather, outlook, tropical, civilAlert, waves] = await Promise.all([
       fetchCurrentWeather(config.island),
       fetchOutlook(config.island),
-      // In replay mode the live Atlantic outlook / civil alerts are irrelevant
-      // to the historical Beryl demo.
+      // In replay mode the live Atlantic outlook / civil alerts / waves are
+      // irrelevant to the historical Beryl demo.
       config.replay ? Promise.resolve(null) : fetchTropicalOutlook(),
       config.replay ? Promise.resolve(null) : fetchCivilAlerts(),
+      config.replay ? Promise.resolve(null) : fetchTropicalWaves(config.island.lon),
     ]);
 
     const cleanStorms = assessment.storms.map(({ advisoryExcerpt, ...s }) => s);
@@ -246,6 +248,7 @@ async function tick() {
       weather: weather ?? status.weather,
       outlook: outlook ?? status.outlook,
       tropical: tropical ?? status.tropical,
+      waves: config.replay ? null : (waves ?? status.waves),
       civilAlert: config.replay ? null : (civilAlert ?? status.civilAlert),
       updatedAt: timestamp,
       replayLabel: label,

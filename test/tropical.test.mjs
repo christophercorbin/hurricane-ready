@@ -4,7 +4,39 @@ import {
   parseOutlook,
   stormsSoFar,
   ATLANTIC_NAMES_2026,
+  parseWaves,
 } from "../src/tropical.mjs";
+
+const TWD = `TROPICAL WAVES...
+
+A far eastern Atlantic tropical wave has its axis along 23W from
+03N to 15N. It is moving westward at 10 kt.
+
+An eastern Caribbean tropical wave has its axis along 62W south
+of 18N. Scattered showers and thunderstorms across the Leeward
+Islands.
+
+A western Caribbean tropical wave is along 80W south of 18N.
+
+...MONSOON TROUGH/ITCZ...
+
+The monsoon trough axis enters the Atlantic near 19N16W.`;
+
+test("parseWaves: extracts axes and flags the one near Barbados", () => {
+  const { waves, near } = parseWaves(TWD, 59.54);
+  assert.deepEqual(waves.map((w) => w.axisLonW), [23, 62, 80]);
+  assert.ok(near);
+  assert.equal(near.axisLonW, 62); // ~2.5° west of Barbados
+});
+
+test("parseWaves: proximity window picks the right wave (or none)", () => {
+  assert.equal(parseWaves(TWD, 84).near.axisLonW, 80); // 80W within 6° of 84
+  assert.equal(parseWaves(TWD, 40).near, null); // nearest axis (23/62) >6° away
+});
+
+test("parseWaves: empty when no wave section", () => {
+  assert.deepEqual(parseWaves("No tropical waves discussed today.", 59.54), { waves: [], near: null });
+});
 
 const wrap = (body) =>
   `<rss><channel><item><pubDate>Thu, 18 Jun 2026 12:00:00 +0000</pubDate>` +
