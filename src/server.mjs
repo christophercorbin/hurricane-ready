@@ -257,11 +257,14 @@ async function tick() {
       }
     }
 
+    // In replay mode all upstream feeds are irrelevant to the historical
+    // Beryl demo — and skipping them keeps each tick fast under the
+    // single-flight loop (#19). The earlier code let weather/outlook block
+    // every tick for up to 8s (their timeout), stretching the replay
+    // beyond CI's polling budget.
     const [weather, outlook, tropical, civilAlert, waves] = await Promise.all([
-      fetchCurrentWeather(config.island),
-      fetchOutlook(config.island),
-      // In replay mode the live Atlantic outlook / civil alerts / waves are
-      // irrelevant to the historical Beryl demo.
+      config.replay ? Promise.resolve(null) : fetchCurrentWeather(config.island),
+      config.replay ? Promise.resolve(null) : fetchOutlook(config.island),
       config.replay ? Promise.resolve(null) : fetchTropicalOutlook(),
       config.replay ? Promise.resolve(null) : fetchCivilAlerts(),
       config.replay ? Promise.resolve(null) : fetchTropicalWaves(config.island.lon),
