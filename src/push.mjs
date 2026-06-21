@@ -7,8 +7,7 @@
  * volume (the rest of the container filesystem is read-only).
  */
 import webpush from "web-push";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import path from "node:path";
+import { writeJsonAtomic, readJsonSafe } from "./storage.mjs";
 
 const PUBLIC = process.env.VAPID_PUBLIC_KEY || "";
 const PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
@@ -31,27 +30,20 @@ const normLevel = (l) => (l in LEVEL_RANK ? l : "WATCH");
 // Each stored record: { subscription, minLevel, quiet }.
 // Migrates older records that were just a raw PushSubscription.
 function load() {
-  try {
-    if (existsSync(SUBS_FILE)) {
-      const parsed = JSON.parse(readFileSync(SUBS_FILE, "utf-8"));
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((r) => (r && r.subscription ? r : { subscription: r, minLevel: "WATCH", quiet: false }))
-          .filter((r) => r.subscription && typeof r.subscription.endpoint === "string");
-      }
-    }
-  } catch {
-    /* corrupt file -> start clean */
-  }
-  return [];
+  const parsed = readJsonSafe(SUBS_FILE, null, {
+    onError: (err) => console.warn(`subscriptions.json is corrupt, starting clean: ${err.message}`),
+  });
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((r) => (r && r.subscription ? r : { subscription: r, minLevel: "WATCH", quiet: false }))
+    .filter((r) => r.subscription && typeof r.subscription.endpoint === "string");
 }
 
 let subs = load();
 
 function save() {
   try {
-    mkdirSync(path.dirname(SUBS_FILE), { recursive: true });
-    writeFileSync(SUBS_FILE, JSON.stringify(subs));
+    writeJsonAtomic(SUBS_FILE, subs);
   } catch (err) {
     console.warn(`Could not persist subscriptions: ${err.message}`);
   }

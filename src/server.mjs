@@ -4,10 +4,13 @@
  * AI briefing -> alert dispatch on level change -> dashboard + JSON API.
  */
 import { createServer } from "node:http";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { config } from "./config.mjs";
+import { writeJsonAtomic, readJsonSafe } from "./storage.mjs";
+import { transitionPersistFirst, createTickLoop } from "./runtime.mjs";
+import { loadAssets, lookupAsset } from "./assets.mjs";
 import { fetchLiveStorms, createReplaySource } from "./nhc.mjs";
 import { fetchAdvisory } from "./advisory.mjs";
 import { fetchCurrentWeather, fetchOutlook } from "./weather.mjs";
@@ -25,21 +28,15 @@ import {
 } from "./push.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const dashboardHtml = readFileSync(path.join(here, "../web/index.html"), "utf-8");
+const webDir = path.join(here, "../web");
+const dashboardHtml = readFileSync(path.join(webDir, "index.html"), "utf-8");
+
+// Preload allowlisted assets into memory once at boot (#25): no per-request
+// readFileSync, no event-loop block, and cache-busted URLs like /sw.js?v=…
+// resolve correctly.
+const assets = loadAssets(webDir);
 
 const LEVEL_LABEL = { ALL_CLEAR: "All clear", WATCH: "Watch", WARNING: "Warning", IMMINENT: "Imminent" };
-
-// Content types for static assets served out of web/ (favicon, icons, PWA).
-const STATIC_TYPES = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".webp": "image/webp",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".webmanifest": "application/manifest+json; charset=utf-8",
-};
 
 // Read a JSON request body (small, with a hard cap) for POST endpoints.
 function readJson(req, limit = 16384) {
@@ -63,19 +60,14 @@ function readJson(req, limit = 16384) {
 // State is namespaced by mode so the Beryl replay demo never bleeds its
 // historical (2024) transitions into the live view, and vice versa.
 const MODE = config.replay ? "replay" : "live";
-const FRESH = { level: "ALL_CLEAR", history: [] };
 
 function loadAllState() {
-  try {
-    if (existsSync(config.stateFile)) {
-      const parsed = JSON.parse(readFileSync(config.stateFile, "utf-8"));
-      // Migrate the old un-namespaced shape; discard its history (it may be
-      // stale replay data) but keep it from crashing.
-      if (parsed.live || parsed.replay) return parsed;
-    }
-  } catch {
-    /* corrupted state: start fresh */
-  }
+  const parsed = readJsonSafe(config.stateFile, null, {
+    onError: (err) => console.warn(`state.json is corrupt, starting fresh: ${err.message}`),
+  });
+  // Migrate the old un-namespaced shape; discard its history (it may be
+  // stale replay data) but keep it from crashing.
+  if (parsed && (parsed.live || parsed.replay)) return parsed;
   return {};
 }
 
@@ -88,14 +80,11 @@ let state =
     ? { level: "ALL_CLEAR", history: [] }
     : allState[MODE];
 
+// Persist state. Throws on failure — callers must decide whether to suppress
+// dispatch (issue #20) rather than risk re-firing the same alert on next boot.
 function saveState(current) {
-  try {
-    mkdirSync(path.dirname(config.stateFile), { recursive: true });
-    allState[MODE] = current;
-    writeFileSync(config.stateFile, JSON.stringify(allState, null, 2));
-  } catch (err) {
-    console.warn(`Could not persist state: ${err.message}`);
-  }
+  allState[MODE] = current;
+  writeJsonAtomic(config.stateFile, allState);
 }
 
 // ---------- Current status (served by the API) ----------
@@ -122,6 +111,11 @@ let status = {
 
 const replaySource = config.replay ? createReplaySource() : null;
 let lastBriefingKm = null;
+
+// Set when a state.json write fails. While true, level-change dispatch is
+// suppressed so a transient FS hiccup can't make the next boot re-fire the
+// same alert. (Issue #20.) Surfaced on /healthz so operators see it.
+let persistenceBroken = false;
 
 // Official-advisory cache: refetch only when the advisory number changes
 const advisoryCache = new Map(); // stormId -> { advNum, parsed }
@@ -193,39 +187,54 @@ async function tick() {
     }
 
     if (levelChanged) {
-      console.log(
-        `Threat level ${state.level} -> ${assessment.overall} (${label ?? "live"})`
-      );
-      const results = await dispatchAlert({
-        level: assessment.overall,
-        previousLevel: state.level,
-        briefing: status.briefing,
-        island: config.island,
-        alerts: config.alerts,
-        region: config.bedrock.region,
-      });
-      if (results.length > 0) console.log("Dispatch:", JSON.stringify(results));
+      const previousLevel = state.level;
+      // Persist BEFORE dispatching (#20): if the write fails, suppress dispatch
+      // and leave in-memory state un-advanced so the next tick re-attempts the
+      // transition cleanly. The next boot can never re-fire the same alert
+      // because the disk reflects the level we already announced.
+      try {
+        const next = transitionPersistFirst({
+          state,
+          newLevel: assessment.overall,
+          timestamp,
+          persist: saveState,
+        });
+        state.history = next.history;
+        state.level = next.level;
+        persistenceBroken = false;
+      } catch (err) {
+        persistenceBroken = true;
+        console.error(
+          `Persistence failed; suppressing ${previousLevel} -> ${assessment.overall} dispatch: ${err.message}`
+        );
+      }
 
-      // Web push to everyone who opted in from the browser.
-      const rising = assessment.overall !== "ALL_CLEAR";
-      const pushRes = await sendPushToAll({
-        title: `${config.island.name}: ${LEVEL_LABEL[assessment.overall]}`,
-        body: rising
-          ? (status.briefing || "").split("\n")[0]
-          : "Conditions have eased — back to all clear.",
-        level: assessment.overall,
-        url: "/",
-      });
-      if (pushRes.sent || pushRes.pruned) console.log("Push:", JSON.stringify(pushRes));
+      if (!persistenceBroken) {
+        console.log(
+          `Threat level ${previousLevel} -> ${assessment.overall} (${label ?? "live"})`
+        );
+        const results = await dispatchAlert({
+          level: assessment.overall,
+          previousLevel,
+          briefing: status.briefing,
+          island: config.island,
+          alerts: config.alerts,
+          region: config.bedrock.region,
+        });
+        if (results.length > 0) console.log("Dispatch:", JSON.stringify(results));
 
-      state.history.push({
-        at: timestamp,
-        from: state.level,
-        to: assessment.overall,
-      });
-      state.history = state.history.slice(-50);
-      state.level = assessment.overall;
-      saveState(state);
+        // Web push to everyone who opted in from the browser.
+        const rising = assessment.overall !== "ALL_CLEAR";
+        const pushRes = await sendPushToAll({
+          title: `${config.island.name}: ${LEVEL_LABEL[assessment.overall]}`,
+          body: rising
+            ? (status.briefing || "").split("\n")[0]
+            : "Conditions have eased — back to all clear.",
+          level: assessment.overall,
+          url: "/",
+        });
+        if (pushRes.sent || pushRes.pruned) console.log("Push:", JSON.stringify(pushRes));
+      }
     }
 
     const [weather, outlook, tropical, civilAlert, waves] = await Promise.all([
@@ -292,6 +301,7 @@ const server = createServer((req, res) => {
       hasWeather: Boolean(status.weather),
       hasOutlook: Boolean(status.outlook),
       hasTropical: Boolean(status.tropical),
+      persistenceBroken,
     }));
     return;
   }
@@ -323,20 +333,21 @@ const server = createServer((req, res) => {
   }
 
   // Static assets (icons, OG image, manifest, service worker) served from web/.
-  // Allowlisted extensions + basename-only lookup keeps this free of path
-  // traversal — there are no sub-directories of assets to reach.
-  if (req.method === "GET" && STATIC_TYPES[path.extname(req.url)]) {
-    const name = path.basename(req.url);
-    const file = path.join(here, "../web", name);
-    if (existsSync(file)) {
-      // The service worker and manifest must update promptly; everything else
-      // (icons, images) can cache for a day.
-      const volatile = name === "sw.js" || name === "manifest.webmanifest";
+  // Preloaded at boot, served from memory, with ETag-based revalidation.
+  if (req.method === "GET") {
+    const asset = lookupAsset(assets, req.url);
+    if (asset) {
+      if (req.headers["if-none-match"] === asset.etag) {
+        res.writeHead(304, { "ETag": asset.etag, "Cache-Control": asset.cacheControl });
+        res.end();
+        return;
+      }
       res.writeHead(200, {
-        "Content-Type": STATIC_TYPES[path.extname(req.url)],
-        "Cache-Control": volatile ? "no-cache" : "public, max-age=86400",
+        "Content-Type": asset.contentType,
+        "Cache-Control": asset.cacheControl,
+        "ETag": asset.etag,
       });
-      res.end(readFileSync(file));
+      res.end(asset.buffer);
       return;
     }
   }
@@ -348,11 +359,31 @@ const intervalMs = config.replay
   ? config.replayIntervalSeconds * 1000
   : config.pollMinutes * 60 * 1000;
 
+// Single-flight loop (issue #19): a slow tick can't overlap the next, and small
+// jitter prevents fleet-wide synchronized polling against NHC / Open-Meteo.
+const loop = createTickLoop({
+  tick,
+  intervalMs,
+  jitterMs: config.replay ? 0 : Math.min(intervalMs * 0.1, 5000),
+});
+
 server.listen(config.port, async () => {
   console.log(
     `Hurricane-Ready watching ${config.island.name} on :${config.port} ` +
       `(${status.mode} mode, tick every ${intervalMs / 1000}s)`
   );
-  await tick();
-  setInterval(tick, intervalMs);
+  await loop.runOnce();
+  loop.start();
 });
+
+// Graceful shutdown (issue #46): stop scheduling, drain the in-flight tick,
+// then close the HTTP server. SIGKILL after 10s if anything hangs.
+async function shutdown(sig) {
+  console.log(`Received ${sig}, draining…`);
+  loop.stop();
+  await loop.drain();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+process.on("SIGTERM", () => { shutdown("SIGTERM"); });
+process.on("SIGINT",  () => { shutdown("SIGINT"); });
