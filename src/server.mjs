@@ -26,6 +26,7 @@ import {
   removeSubscription,
   sendPushToAll,
 } from "./push.mjs";
+import { createRateLimiter } from "./ratelimit.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webDir = path.join(here, "../web");
@@ -37,6 +38,25 @@ const dashboardHtml = readFileSync(path.join(webDir, "index.html"), "utf-8");
 const assets = loadAssets(webDir);
 
 const LEVEL_LABEL = { ALL_CLEAR: "All clear", WATCH: "Watch", WARNING: "Warning", IMMINENT: "Imminent" };
+
+// Per-IP rate limiters for the push opt-in endpoints (issue #17). The defaults
+// (5 subscribes / 60s, 10 unsubscribes / 60s) are generous for a real human
+// but cap abuse cheaply — combined with the endpoint allowlist (push.mjs),
+// flooding the subscription store is no longer cheap.
+const subscribeLimiter = createRateLimiter({ tokensPerWindow: 5, windowMs: 60_000 });
+const unsubscribeLimiter = createRateLimiter({ tokensPerWindow: 10, windowMs: 60_000 });
+
+// Best-effort client IP. CloudFront sets CF-Connecting-IP / X-Forwarded-For;
+// direct origin requests fall through to the socket address. A spoofer setting
+// XFF still consumes ~5 tokens per fake IP, so the per-bucket cost dominates.
+function clientIp(req) {
+  const cf = req.headers["cf-connecting-ip"];
+  if (typeof cf === "string" && cf.length) return cf.trim();
+  const xff = req.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.length) return xff.split(",")[0].trim();
+  return req.socket.remoteAddress || "unknown";
+}
+
 
 // Read a JSON request body (small, with a hard cap) for POST endpoints.
 function readJson(req, limit = 16384) {
@@ -318,6 +338,11 @@ const server = createServer((req, res) => {
     return;
   }
   if (req.method === "POST" && req.url === "/api/subscribe") {
+    if (!subscribeLimiter.take(clientIp(req))) {
+      res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "60" });
+      res.end(JSON.stringify({ ok: false, error: "rate_limited" }));
+      return;
+    }
     readJson(req).then((body) => {
       const sub = body && body.subscription ? body.subscription : body;
       const ok = sub && addSubscription(sub, { minLevel: body && body.minLevel, quiet: body && body.quiet });
@@ -327,10 +352,15 @@ const server = createServer((req, res) => {
     return;
   }
   if (req.method === "POST" && req.url === "/api/unsubscribe") {
+    if (!unsubscribeLimiter.take(clientIp(req))) {
+      res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "60" });
+      res.end(JSON.stringify({ ok: false, error: "rate_limited" }));
+      return;
+    }
     readJson(req).then((body) => {
-      if (body && body.endpoint) removeSubscription(body.endpoint);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
+      const removed = body && body.endpoint ? removeSubscription(body.endpoint) : false;
+      res.writeHead(removed ? 200 : 404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: removed }));
     });
     return;
   }
