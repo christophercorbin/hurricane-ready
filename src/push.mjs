@@ -8,6 +8,7 @@
  */
 import webpush from "web-push";
 import { writeJsonAtomic, readJsonSafe } from "./storage.mjs";
+import { isAllowedPushEndpoint } from "./endpoint.mjs";
 
 const PUBLIC = process.env.VAPID_PUBLIC_KEY || "";
 const PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
@@ -23,6 +24,21 @@ if (pushEnabled) {
 }
 
 const SUBS_FILE = process.env.SUBS_FILE || "/data/subscriptions.json";
+
+// Push-endpoint allowlist (issue #17). Defaults cover the known production
+// push services; override via PUSH_ALLOWED_HOSTS (comma-separated). A leading
+// "." matches subdomains only — see endpoint.mjs.
+const DEFAULT_ALLOWED_HOSTS = [
+  "fcm.googleapis.com",
+  "android.googleapis.com",
+  "updates.push.services.mozilla.com",
+  "web.push.apple.com",
+  ".notify.windows.com",
+];
+const ALLOWED_HOSTS = (process.env.PUSH_ALLOWED_HOSTS ?? DEFAULT_ALLOWED_HOSTS.join(","))
+  .split(",")
+  .map((h) => h.trim())
+  .filter(Boolean);
 
 const LEVEL_RANK = { ALL_CLEAR: 0, WATCH: 1, WARNING: 2, IMMINENT: 3 };
 const normLevel = (l) => (l in LEVEL_RANK ? l : "WATCH");
@@ -66,6 +82,9 @@ export function addSubscription(sub, prefs = {}) {
       typeof sub.keys.p256dh !== "string" || typeof sub.keys.auth !== "string") {
     return false;
   }
+  // Endpoint must point at a known push service over https — no raw IPs, no
+  // attacker-controlled URLs (issue #17, SSRF defense).
+  if (!isAllowedPushEndpoint(sub.endpoint, ALLOWED_HOSTS)) return false;
   const record = {
     subscription: sub,
     minLevel: normLevel(prefs.minLevel),
@@ -82,7 +101,9 @@ export function addSubscription(sub, prefs = {}) {
 export function removeSubscription(endpoint) {
   const before = subs.length;
   subs = subs.filter((r) => r.subscription.endpoint !== endpoint);
-  if (subs.length !== before) save();
+  const removed = subs.length !== before;
+  if (removed) save();
+  return removed;
 }
 
 // Should this subscriber get a push for `level`?  Honour their minimum level;
