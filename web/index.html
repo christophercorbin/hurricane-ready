@@ -192,9 +192,13 @@
     .wx-desc { font-size: 1rem; color: var(--text); }
     .wx-feels { font-size: 0.82rem; color: var(--muted); }
     .wx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; padding: 0.3rem 1.1rem 1.1rem; }
-    .wx-tile { border: 1px solid var(--border); border-radius: 12px; padding: 0.6rem 0.75rem; background: var(--card-2); }
+    .wx-tile { position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 0.6rem 0.75rem; background: var(--card-2); }
     .wx-tile .lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .wx-tile .val { font-size: 1.1rem; font-weight: 700; margin-top: 0.15rem; }
+    .tile-info { position: absolute; top: 6px; right: 6px; width: 19px; height: 19px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 0.72rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+    .tile-info:hover, .tile-info:focus-visible { color: var(--soft-text); border-color: var(--accent); }
+    .tile-note { margin-top: 0.45rem; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
+    .tile-note b { color: var(--soft-text); font-weight: 600; }
     .wx-obs { font-size: 0.72rem; color: var(--muted); padding: 0 1.1rem 1.1rem; }
     .panel-age { font-size: 0.7rem; color: var(--muted); padding: 0 1.1rem 1rem; }
     .flood-note { font-size: 0.88rem; color: var(--soft-text); padding: 0 1.1rem 0.6rem; line-height: 1.5; }
@@ -696,6 +700,52 @@
     const hazeWord = (pm10) => pm10 == null ? "—" : pm10 < 30 ? "Clear" : pm10 < 55 ? "Slight haze" : pm10 < 110 ? "Hazy" : pm10 < 180 ? "Thick dust" : "Severe dust";
     const hazeClass = (pm10) => pm10 == null ? "low" : pm10 < 55 ? "low" : pm10 < 110 ? "medium" : "high";
     const windWordKt = (kt) => kt == null ? "light" : kt < 7 ? "light" : kt < 16 ? "gentle" : kt < 22 ? "breezy" : kt < 34 ? "fresh" : "strong";
+
+    // Plain-language "what does this rating mean + what should I do" notes,
+    // shown on demand behind a "?" so the tiles stay uncluttered.
+    const seaExplain = (m) => m == null ? null
+      : m < 1 ? "<b>Calm</b> — flat, glassy water. Great for swimming and small boats."
+      : m < 1.5 ? "<b>Slight</b> — small waves about 1 m, knee-to-waist high. Fine for a swim."
+      : m < 2.5 ? "<b>Moderate</b> — choppy, waves up to about 2.5 m. Swim with care and watch children."
+      : m < 4 ? "<b>Rough</b> — big waves (2.5–4 m). Best to stay out of the water."
+      : "<b>Very rough</b> — dangerous seas over 4 m. Keep off the beaches and don't take a boat out.";
+    const uvExplain = (uv) => uv == null ? null
+      : uv < 3 ? "<b>Low</b> — little burn risk. Safe to be outside."
+      : uv < 6 ? "<b>Moderate</b> — you could burn in 30–45 min. Wear a hat and sunscreen for long stints outside."
+      : uv < 8 ? "<b>High</b> — skin burns in about 25 min. Wear sunscreen and seek shade around midday."
+      : uv < 11 ? "<b>Very high</b> — burns in about 15 min. Cover up and limit midday sun."
+      : "<b>Extreme</b> — burns in minutes. Stay out of the midday sun where you can.";
+    const aqiExplain = (v) => v == null ? null
+      : v <= 50 ? "<b>Good</b> — the air is clean. Fine for everyone."
+      : v <= 100 ? "<b>Moderate</b> — mostly fine. A few unusually sensitive people might notice irritation."
+      : v <= 150 ? "<b>Unhealthy for sensitive groups</b> — OK for most, but people with asthma, heart or lung conditions should ease up on hard outdoor activity."
+      : v <= 200 ? "<b>Unhealthy</b> — everyone may start to feel it. Limit long or intense time outdoors."
+      : v <= 300 ? "<b>Very unhealthy</b> — health alert. Cut outdoor activity and keep windows shut."
+      : "<b>Hazardous</b> — emergency levels. Stay indoors.";
+    const hazeExplain = (pm10) => pm10 == null ? null
+      : pm10 < 30 ? "Saharan dust blows across the Atlantic and hazes the sky. <b>Clear</b> right now — little dust about."
+      : pm10 < 55 ? "Saharan dust blows across the Atlantic and hazes the sky. <b>Slight haze</b> — the sky looks a little milky; most people won't be affected."
+      : pm10 < 110 ? "Saharan dust blows across the Atlantic and hazes the sky. <b>Hazy</b> — noticeable dust; people with asthma may feel it."
+      : pm10 < 180 ? "Saharan dust blows across the Atlantic and hazes the sky. <b>Thick dust</b> — hazy air; limit time outdoors if you have breathing trouble."
+      : "Saharan dust blows across the Atlantic and hazes the sky. <b>Severe dust</b> — keep windows closed; asthma and allergy sufferers should stay in.";
+
+    // Build a readout tile. If `note` is given, add a "?" that reveals a
+    // plain-language explanation in the same box — kept hidden by default so
+    // the grid isn't an information dump.
+    function infoTile(lbl, valHtml, note) {
+      const info = note
+        ? `<button type="button" class="tile-info" aria-label="What does ${lbl} mean?" aria-expanded="false" onclick="toggleTileNote(this)">?</button><div class="tile-note" hidden>${note}</div>`
+        : "";
+      return `<div class="wx-tile"><div class="lbl">${lbl}</div><div class="val">${valHtml}</div>${info}</div>`;
+    }
+    function toggleTileNote(btn) {
+      const note = btn.parentElement.querySelector(".tile-note");
+      if (!note) return;
+      const open = note.hidden;
+      note.hidden = !open;
+      btn.setAttribute("aria-expanded", String(open));
+    }
+    window.toggleTileNote = toggleTileNote;
     // Turn WMO descriptions into a natural adjective for "it's 22°C and ___".
     const feel = (code, desc) =>
       code >= 95 ? "stormy" :
@@ -933,13 +983,14 @@
       const m = o && o.marine;
       const uvNow = o && o.hourly && o.hourly.length ? o.hourly[0].uv : null;
       const uvMax = o && o.daily && o.daily.length ? o.daily[0].uvMax : null;
-      const waveVal = m && m.waveHeightM != null ? m.waveHeightM + " m" : "—";
+      const mh = m && m.waveHeightM != null ? m.waveHeightM : null;
+      const waveVal = mh != null ? mh + " m" : "—";
       const periodVal = m && m.wavePeriodS != null ? m.wavePeriodS + " s" : "—";
-      grid.innerHTML = `
-        <div class="wx-tile"><div class="lbl">Sea state</div><div class="val">${seaWord(m && m.waveHeightM)}</div></div>
-        <div class="wx-tile"><div class="lbl">Wave height</div><div class="val">${waveVal}</div></div>
-        <div class="wx-tile"><div class="lbl">Wave period</div><div class="val">${periodVal}</div></div>
-        <div class="wx-tile"><div class="lbl">UV now</div><div class="val"><span class="uv ${uvClass(uvNow)}">${uvWord(uvNow)}</span></div></div>`;
+      grid.innerHTML =
+        infoTile("Sea state", seaWord(mh), seaExplain(mh)) +
+        infoTile("Wave height", waveVal, mh != null ? `How tall the waves are, measured crest to trough — about <b>${mh} m</b> right now. Sea state is the word for the same thing.` : null) +
+        infoTile("Wave period", periodVal, "The gap in seconds between one wave and the next. Longer gaps (10s+) mean a stronger, more powerful swell; short gaps are choppy wind-driven sea.") +
+        infoTile("UV now", `<span class="uv ${uvClass(uvNow)}">${uvWord(uvNow)}</span>`, uvExplain(uvNow));
       const uvAdvice = (uvMax != null && uvMax >= 6) ? " UV peaks " + uvWord(uvMax).toLowerCase() + " today — wear sunscreen and seek shade around midday." : "";
       if (m && m.waveHeightM != null) {
         sum.innerHTML = `<span class="lead">Seas are ${seaWord(m.waveHeightM).toLowerCase()} at about ${m.waveHeightM} m.</span>${uvAdvice}`;
@@ -1022,11 +1073,11 @@
       const nextEvent = !tide ? "—"
         : tide.rising && tide.nextHigh ? "High " + timeLabel(tide.nextHigh.time)
         : tide.nextLow ? "Low " + timeLabel(tide.nextLow.time) : "—";
-      grid.innerHTML = `
-        <div class="wx-tile"><div class="lbl">Air quality</div><div class="val"><span class="chance ${aq ? aqiClass(aq.usAqi) : "low"}">${aq ? aqiWord(aq.usAqi) : "—"}</span></div></div>
-        <div class="wx-tile"><div class="lbl">Saharan dust</div><div class="val"><span class="chance ${aq ? hazeClass(aq.pm10) : "low"}">${aq ? hazeWord(aq.pm10) : "—"}</span></div></div>
-        <div class="wx-tile"><div class="lbl">Tide</div><div class="val">${tideState}</div></div>
-        <div class="wx-tile"><div class="lbl">Next tide</div><div class="val">${nextEvent}</div></div>`;
+      grid.innerHTML =
+        infoTile("Air quality", `<span class="chance ${aq ? aqiClass(aq.usAqi) : "low"}">${aq ? aqiWord(aq.usAqi) : "—"}</span>`, aq ? aqiExplain(aq.usAqi) : null) +
+        infoTile("Saharan dust", `<span class="chance ${aq ? hazeClass(aq.pm10) : "low"}">${aq ? hazeWord(aq.pm10) : "—"}</span>`, aq ? hazeExplain(aq.pm10) : null) +
+        infoTile("Tide", tideState, tide ? "Whether the sea is coming in (<b>rising</b>) or going out (<b>falling</b>). Rising tides cover more of the beach." : null) +
+        infoTile("Next tide", nextEvent, tide ? "The time of the next high or low tide. Around high tide the water reaches furthest up the beach." : null);
       const parts = [];
       if (aq) {
         const aqi = aqiWord(aq.usAqi).toLowerCase();
