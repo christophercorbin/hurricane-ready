@@ -2,6 +2,10 @@
  * Alert dispatch. Fires only when the threat level CHANGES (de-duped by
  * the caller via state). All channels optional; failures are logged,
  * never fatal.
+ *
+ * The second arg is for dependency injection — tests pass fake clients and
+ * a fake fetch; production gets real SES/SNS clients and the global fetch.
+ * (Issue #26: this is what makes the path testable without real AWS.)
  */
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
@@ -13,13 +17,16 @@ const LEVEL_LABEL = {
   IMMINENT: "Imminent",
 };
 
-export async function dispatchAlert({ level, previousLevel, briefing, island, alerts, region }) {
+export async function dispatchAlert(
+  { level, previousLevel, briefing, island, alerts, region },
+  { sesClient, snsClient, httpFetch = fetch } = {},
+) {
   const subject = `[Hurricane-Ready] ${island.name}: ${LEVEL_LABEL[level]} (was ${LEVEL_LABEL[previousLevel]})`;
   const results = [];
 
   if (alerts.emails.length > 0 && alerts.senderEmail) {
+    const ses = sesClient ?? new SESv2Client({ region });
     try {
-      const ses = new SESv2Client({ region });
       await ses.send(
         new SendEmailCommand({
           FromEmailAddress: alerts.senderEmail,
@@ -40,7 +47,7 @@ export async function dispatchAlert({ level, previousLevel, briefing, island, al
   }
 
   if (alerts.phones.length > 0) {
-    const sns = new SNSClient({ region });
+    const sns = snsClient ?? new SNSClient({ region });
     // SMS must be short: level + first line of guidance
     const sms = `${subject}. ${briefing.split("\n")[0]} Follow Barbados Met Services & DEM.`.slice(0, 300);
     for (const phone of alerts.phones) {
@@ -56,7 +63,7 @@ export async function dispatchAlert({ level, previousLevel, briefing, island, al
 
   if (alerts.webhookUrl) {
     try {
-      const res = await fetch(alerts.webhookUrl, {
+      const res = await httpFetch(alerts.webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
