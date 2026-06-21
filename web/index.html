@@ -214,6 +214,8 @@
     .day .rain { font-size: 0.72rem; color: var(--accent); margin-top: 0.25rem; }
 
     /* Hourly strip */
+    .strip-key { font-size: 0.75rem; color: var(--muted); padding: 0 1.1rem 0.45rem; line-height: 1.4; }
+    .strip-key b { color: var(--soft-text); font-weight: 600; }
     .hours { display: flex; gap: 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0.3rem 1.1rem 1.1rem; }
     .hr { flex: 0 0 auto; width: 66px; text-align: center; border: 1px solid var(--border); border-radius: 11px; padding: 0.5rem 0.3rem; background: var(--card-2); }
     .hr .t { font-size: 0.72rem; color: var(--muted); }
@@ -267,6 +269,8 @@
     .explain[open] summary { border-bottom: 1px solid var(--border); }
     .explain .ex-body { padding: 0.7rem 0.85rem; font-size: 0.85rem; color: var(--soft-text); line-height: 1.6; }
     .explain .ex-body b { color: var(--text); font-weight: 700; }
+    .explain .rkey { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0; font-size: 0.85rem; }
+    .explain .rsw { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; display: inline-block; }
 
     /* Active systems */
     .table-wrap { overflow-x: auto; }
@@ -439,6 +443,7 @@
       <section class="card" id="forecast">
         <h2>📅 Next 7 days</h2>
         <p class="summary" id="forecast-summary"></p>
+        <p class="strip-key">Each day shows the high/low temperature and <b>💧 the chance of rain</b>.</p>
         <div class="days" id="days"><p class="summary">Loading forecast…</p></div>
         <p class="panel-age" id="forecast-age"></p>
       </section>
@@ -447,7 +452,8 @@
         <h2>🌧️ Rain &amp; wind — next 24 hours</h2>
         <p class="summary" id="rainwind-summary">Loading outlook…</p>
         <p class="flood-note" id="flood-note" role="status" aria-live="polite" hidden></p>
-        <div class="hours" id="hours" tabindex="0" role="group" aria-label="Hourly forecast — scroll for more hours"></div>
+        <p class="strip-key">Hour by hour — <b>💧 chance of rain</b> and <b>wind speed</b> (scroll for all 24 hours):</p>
+        <div class="hours" id="hours" tabindex="0" role="group" aria-label="Hourly forecast for the next 24 hours — scroll sideways"></div>
       </section>
 
       <section class="card" id="sea">
@@ -455,6 +461,7 @@
         <p class="summary" id="sea-summary">Loading sea conditions…</p>
         <div class="wx-grid" id="sea-grid"></div>
         <h2>☀️ Sun &amp; moon</h2>
+        <p class="strip-key" id="sky-day"></p>
         <div class="wx-grid" id="sky-grid"></div>
         <h2>🌫️ Air &amp; tide</h2>
         <p class="summary" id="air-summary">Loading air &amp; tide…</p>
@@ -471,7 +478,13 @@
         </div>
         <details class="explain">
           <summary>What am I looking at?</summary>
-          <div class="ex-body">This map shows <b>rain happening right now</b>, picked up by weather radar. Green is light rain, yellow and orange are heavier, and red is a downpour or thunderstorm. The blue dot is Barbados. Press <b>▶ Play radar</b> to watch where the rain has moved over the last hour — that's the direction it's heading. When a storm is active, the <b>amber cone</b> shows where its centre could track over the next 5 days (the NHC forecast plus its average error) — note the storm's winds and rain reach well beyond the thin line.</div>
+          <div class="ex-body">This map shows <b>rain happening right now</b>, picked up by weather radar. The colours run from light to heavy:
+            <span class="rkey"><span class="rsw" style="background:#27aee2"></span><b>Blue</b> — light rain or drizzle</span>
+            <span class="rkey"><span class="rsw" style="background:#3bb143"></span><b>Green</b> — steady rain</span>
+            <span class="rkey"><span class="rsw" style="background:#f2c200"></span><b>Yellow/orange</b> — heavy rain</span>
+            <span class="rkey"><span class="rsw" style="background:#e53935"></span><b>Red</b> — a downpour or thunderstorm</span>
+            <span class="rkey"><span class="rsw" style="background:#fff;border:1px solid #888"></span><b>White dot</b> — Barbados (you)</span>
+            Press <b>▶ Play radar</b> to watch which way the rain is moving — that's where it's heading. When a storm is active, the <b>amber cone</b> shows where its centre could track over the next 5 days (the NHC forecast plus its average error) — the storm's winds and rain reach well beyond the thin line.</div>
         </details>
 
         <figure class="sat" id="sat" hidden>
@@ -863,7 +876,7 @@
       if (!o || !o.daily || !o.daily.length) { wrap.innerHTML = '<p class="summary">Forecast unavailable right now.</p>'; document.getElementById("forecast-summary").textContent = ""; return; }
       wrap.innerHTML = o.daily.map((d, idx) => {
         const dow = idx === 0 ? "Today" : DOW[new Date(d.date + "T00:00").getDay()];
-        const rain = d.rainProb != null ? `<div class="rain">${d.rainProb}%</div>` : "";
+        const rain = d.rainProb != null ? `<div class="rain" title="Chance of rain">💧 ${d.rainProb}%</div>` : "";
         return `<div class="day"><div class="dow">${dow}</div><div class="ico" aria-hidden="true">${icon(d.code)}</div>
           <div><span class="hi">${fmtDeg(d.maxC)}</span> <span class="lo">${fmtDeg(d.minC)}</span></div>${rain}</div>`;
       }).join("");
@@ -884,9 +897,9 @@
       const sum = document.getElementById("rainwind-summary");
       if (!o || !o.hourly || !o.hourly.length) { sum.textContent = "Hourly outlook unavailable right now."; wrap.innerHTML = ""; return; }
       const h = o.hourly;
-      wrap.innerHTML = h.filter((_, i) => i % 2 === 0).map(x => `
+      wrap.innerHTML = h.map(x => `
         <div class="hr"><div class="t">${hourLabel(x.time)}</div><div class="ico" aria-hidden="true">${icon(x.code)}</div>
-          <div class="r">${x.rainProb ?? 0}%</div><div class="w">${fromKmh(x.windKmh)} ${wUnit()}</div></div>`).join("");
+          <div class="r" title="Chance of rain">💧 ${x.rainProb ?? 0}%</div><div class="w">${fromKmh(x.windKmh)} ${wUnit()}</div></div>`).join("");
       let peak = h[0];
       for (const x of h) if ((x.rainProb ?? 0) > (peak.rainProb ?? 0)) peak = x;
       const winds = h.map(x => x.windKmh);
@@ -1031,7 +1044,15 @@
     function renderSunMoon(o) {
       const g = document.getElementById("sky-grid");
       const a = o && o.astro;
-      if (!a) { g.innerHTML = `<div class="wx-tile"><div class="lbl">Sun &amp; moon</div><div class="val">—</div></div>`; return; }
+      const dayEl = document.getElementById("sky-day");
+      if (!a) { g.innerHTML = `<div class="wx-tile"><div class="lbl">Sun &amp; moon</div><div class="val">—</div></div>`; if (dayEl) dayEl.textContent = ""; return; }
+      if (dayEl) {
+        const d = a.sunrise ? new Date(a.sunrise) : new Date();
+        const today = new Date();
+        const sameDay = d.toDateString() === today.toDateString();
+        const ds = d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+        dayEl.innerHTML = `Sunrise, sunset and moon for <b>${sameDay ? "today" : ds}</b>${sameDay ? " (" + ds + ")" : ""}.`;
+      }
       const dl = a.daylightSeconds != null
         ? `${Math.floor(a.daylightSeconds / 3600)}h ${Math.round((a.daylightSeconds % 3600) / 60)}m` : "—";
       g.innerHTML = `
@@ -1188,7 +1209,8 @@
     function renderMap(s) {
       if (!map) initMap(s.island);
       layerGroup.clearLayers();
-      L.circleMarker([s.island.lat, s.island.lon], { radius: 7, color: "#38bdf8", fillColor: "#38bdf8", fillOpacity: 0.9 })
+      // White dot with a dark ring — stands out from the blue radar returns.
+      L.circleMarker([s.island.lat, s.island.lon], { radius: 6, color: "#0b1220", weight: 3, fillColor: "#ffffff", fillOpacity: 1 })
         .bindTooltip(s.island.name, { permanent: true, direction: "bottom" }).addTo(layerGroup);
       for (const st of s.storms) {
         // Cone of uncertainty first, so the track and markers sit on top.

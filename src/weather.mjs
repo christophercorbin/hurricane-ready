@@ -146,10 +146,18 @@ export async function fetchOutlook(island) {
       uvMax: f.daily.uv_index_max[i] != null ? Math.round(f.daily.uv_index_max[i]) : null,
     }));
 
-    // Next 24 hours starting from the current hour.
+    // Next 24 hours starting from the *current* local hour. Open-Meteo returns
+    // naive local timestamps (e.g. "2026-06-20T21:00", no zone) plus the zone's
+    // utc_offset_seconds. We must apply that offset — parsing the naive string
+    // as if it were UTC skews the start by the island's offset (4h for AST),
+    // making the strip begin hours in the future. local = UTC + offset, so the
+    // instant's true UTC ms = (naive parsed as UTC) - offset.
     const now = Date.now();
+    const offsetMs = (f.utc_offset_seconds ?? 0) * 1000;
+    const toUtcMs = (t) => Date.parse(t + "Z") - offsetMs;
     const times = f.hourly.time;
-    let start = times.findIndex((t) => new Date(t).getTime() >= now);
+    // First hour whose end is still ahead of now == the hour we're currently in.
+    let start = times.findIndex((t) => toUtcMs(t) + 3600000 > now);
     if (start < 0) start = 0;
     const hourly = [];
     for (let i = start; i < Math.min(start + 24, times.length); i++) {
@@ -169,7 +177,8 @@ export async function fetchOutlook(island) {
     if (marineRes.status === "fulfilled" && marineRes.value.hourly) {
       const m = marineRes.value;
       const mt = m.hourly.time;
-      let mi = mt.findIndex((t) => new Date(t).getTime() >= now);
+      const mOffsetMs = m.utc_offset_seconds != null ? m.utc_offset_seconds * 1000 : offsetMs;
+      let mi = mt.findIndex((t) => Date.parse(t + "Z") - mOffsetMs + 3600000 > now);
       if (mi < 0) mi = 0;
       marine = {
         waveHeightM: round1(m.hourly.wave_height?.[mi]),
