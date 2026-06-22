@@ -4,6 +4,38 @@
  * way in from the internet.
  */
 
+# ---------- Custom domain + TLS (prep for #23) ----------
+# Until you have a real domain, leave both empty: the distribution falls back
+# to the *.cloudfront.net default cert. With a real domain provisioned and an
+# ACM cert in us-east-1 (manual: aws acm request-certificate + DNS validation
+# in Route53 or whichever DNS provider you use), set both and re-apply.
+#
+# When both are set:
+#   - viewer_certificate switches to the ACM cert with TLSv1.2_2021 minimum
+#   - distribution `aliases` is populated so the custom domain reaches it
+#   - HSTS `preload` directive is emitted (it's meaningless on cloudfront.net,
+#     so we keep it off until a real domain backs the claim)
+
+variable "aliases" {
+  description = "Custom domain aliases for the CloudFront distribution. Empty list keeps the *.cloudfront.net default. All entries must be covered by the ACM certificate."
+  type        = list(string)
+  default     = []
+}
+
+variable "acm_certificate_arn" {
+  description = "ARN of a us-east-1 ACM certificate covering every entry in `aliases`. Required when `aliases` is non-empty."
+  type        = string
+  default     = ""
+  validation {
+    condition     = (length(var.aliases) == 0) == (var.acm_certificate_arn == "")
+    error_message = "`aliases` and `acm_certificate_arn` must both be set, or both be empty."
+  }
+}
+
+locals {
+  use_custom_domain = var.acm_certificate_arn != ""
+}
+
 # ---------- VPC Origin: CloudFront's connection to the internal ALB ----------
 
 resource "aws_cloudfront_vpc_origin" "alb" {
@@ -36,8 +68,12 @@ resource "aws_cloudfront_response_headers_policy" "security" {
     strict_transport_security {
       access_control_max_age_sec = 63072000 # 2 years
       include_subdomains         = true
-      preload                    = true
-      override                   = true
+      # HSTS preload only when a real domain + TLSv1.2_2021 cert backs the claim.
+      # Preload on *.cloudfront.net is meaningless (the preload list won't
+      # accept it) and emitting it over a TLSv1-capable connection is exactly
+      # the misconfig the preload list rejects. Issue #23.
+      preload  = local.use_custom_domain
+      override = true
     }
     content_type_options {
       override = true
@@ -79,6 +115,8 @@ resource "aws_cloudfront_distribution" "app" {
   # See waf.tf. Closes #22 — the origin task is no longer a single-flight
   # DoS target.
   web_acl_id = aws_wafv2_web_acl.cf.arn
+
+  aliases = var.aliases
 
   origin {
     domain_name = aws_lb.app.dns_name
@@ -165,10 +203,15 @@ resource "aws_cloudfront_distribution" "app" {
     response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
   }
 
+  # Without an ACM cert: stay on the default *.cloudfront.net cert (which
+  # forces TLSv1 minimum — see issue #23). With an ACM cert: tighten to
+  # TLSv1.2_2021 and serve the custom aliases. Setting `null` on the inactive
+  # fields makes the provider omit them from the API call.
   viewer_certificate {
-    # Default *.cloudfront.net cert. Swap to ACM (us-east-1) + aliases when
-    # there's a real domain to point at this.
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = local.use_custom_domain ? null : true
+    acm_certificate_arn            = local.use_custom_domain ? var.acm_certificate_arn : null
+    ssl_support_method             = local.use_custom_domain ? "sni-only" : null
+    minimum_protocol_version       = local.use_custom_domain ? "TLSv1.2_2021" : null
   }
 
   restrictions {

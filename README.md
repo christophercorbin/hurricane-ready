@@ -139,6 +139,38 @@ Two workflows in `.github/workflows/`:
 
 To wire an AWS account: `cd infra && tofu apply` there, then set the outputs as GitHub repo variables (`AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY`, and later `ECS_CLUSTER`/`ECS_SERVICE`). Until then the pipeline is fully functional against GHCR — anyone can `docker run ghcr.io/christophercorbin/hurricane-ready`.
 
+### Putting it on a real domain (TLS 1.2+, HSTS preload)
+
+Without a domain, the distribution falls back to `*.cloudfront.net` — which forces TLSv1 as the minimum and makes HSTS preload meaningless. To upgrade:
+
+```bash
+# 1. Request an ACM certificate in us-east-1 (CloudFront requires us-east-1).
+aws acm request-certificate \
+  --domain-name hurricane-ready.example.com \
+  --validation-method DNS \
+  --region us-east-1
+
+# 2. Add the validation CNAME(s) ACM gives you to your DNS provider.
+#    Wait for status: ISSUED.
+
+# 3. Set the Terraform variables and apply.
+cd infra
+cat > terraform.tfvars <<EOF
+aliases             = ["hurricane-ready.example.com"]
+acm_certificate_arn = "arn:aws:acm:us-east-1:<account-id>:certificate/<cert-id>"
+EOF
+tofu apply
+
+# 4. Point the domain's DNS at the distribution's domain (CNAME or ALIAS to
+#    the dXXXXX.cloudfront.net hostname Terraform outputs).
+```
+
+What the apply changes:
+
+- `viewer_certificate` swaps to the ACM cert with `TLSv1.2_2021` as the minimum protocol.
+- The distribution serves the custom alias.
+- The HSTS response header gains `preload` (now meaningful — submit the domain to the [HSTS preload list](https://hstspreload.org/) if desired).
+
 ## How the threat is computed
 
 For each active Atlantic storm, the watcher also fetches the official NHC **Forecast/Advisory (TCM)** and parses it deterministically (`src/advisory.mjs`): forecast positions at +12 through +120 hours, max winds, and 34-kt wind radii. Closest approach is computed along the **official forecast track** (interpolated hourly), falling back to dead reckoning from current motion only when no advisory is available — the dashboard labels which method was used. The 34-kt wind-field radius is subtracted from distances, because a storm reaches you when its winds do, not its center. Claude's briefings also receive the raw advisory excerpt for accurate detail (rainfall, timing), with the level still locked by the engine.
