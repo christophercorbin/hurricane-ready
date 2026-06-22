@@ -36,6 +36,32 @@ npx web-push generate-vapid-keys      # once; put the pair in .env
 
 Subscriptions persist on the `/data` volume. Expired ones (HTTP 410/404) self-prune on the next send. To test real delivery end-to-end: subscribe in the browser, then run the Beryl replay (`REPLAY=1`) and watch the level climb — each change fires a push.
 
+### Rotating the VAPID keypair
+
+VAPID keys are long-lived secrets. Rotate if you suspect the private key has been exposed (committed to git history, leaked in a backup or screen-share, copied to an AI tool with retention) — or on a routine schedule (annually is fine).
+
+Rotation is mildly disruptive: **every existing subscriber is invalidated** and must re-subscribe in the browser. Plan accordingly (don't rotate the morning a hurricane is bearing down).
+
+```bash
+# 1. Generate a new keypair.
+npx web-push generate-vapid-keys
+
+# 2. Update the deployment secret store (AWS Secrets Manager / SSM /
+#    Doppler / 1Password — whatever the deploy injects into the container).
+#    DO NOT just paste the new keypair into .env on disk: that file is for
+#    local dev, and disk-resident long-lived secrets are exactly what you're
+#    rotating away from.
+
+# 3. Redeploy. Old subscribers will get 410 Gone on the next dispatch and
+#    self-prune from subscriptions.json. The "Get storm alerts" button stays
+#    available; users who want pushes back must click it again.
+
+# 4. (Local dev only) Update .env with the new keypair if you use it for
+#    local testing.
+```
+
+If the key was ever committed to git (verify with `git log --all --full-history -- .env`), rotating alone isn't enough — also purge the history (e.g. `git filter-repo`) and force-push. The old key remains in any clones / forks / GitHub's reflog until that's done.
+
 ## The design rule
 
 **Deterministic code decides the threat level. AI only explains it.**

@@ -1,6 +1,46 @@
+# Dockerfile uses narrow COPY directives (src/, web/, fixtures/, package*.json),
+# so these patterns only shrink the build context — they don't change image
+# contents. The defense-in-depth value is real, though: a future `COPY . .`
+# wouldn't quietly leak secrets, terraform state, or test fixtures.
+
+# Version control + git metadata
 .git
 .gitignore
+
+# Dependencies (Dockerfile fetches them in the deps stage)
 node_modules
+
+# Persisted runtime state (a volume mount in production)
 data
+
+# Secrets — never bake into an image
+.env
+.env.*
+
+# Build / test artifacts that have no business in the runtime image
 test
+e2e
+test-results
+playwright-report
+playwright.config.mjs
+coverage
+previews
+.playwright-mcp
+
+# Infrastructure code + (more importantly) any local terraform state on disk
+infra
+*.tfstate
+*.tfstate.*
+
+# CI workflows
+.github
+
+# Editor / OS detritus
+.vscode
+.idea
+.DS_Store
+*.log
+
+# Docs
 README.md
+*.md
