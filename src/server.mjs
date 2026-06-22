@@ -9,7 +9,14 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { config } from "./config.mjs";
 import { writeJsonAtomic, readJsonSafe } from "./storage.mjs";
-import { transitionPersistFirst, createTickLoop } from "./runtime.mjs";
+import {
+  transitionPersistFirst,
+  createTickLoop,
+  shouldDispatchOnTransition,
+  pruneCacheToActive,
+  briefingThrottleKey,
+  shouldRegenerateBriefing,
+} from "./runtime.mjs";
 import { loadAssets, lookupAsset } from "./assets.mjs";
 import { fetchLiveStorms, createReplaySource } from "./nhc.mjs";
 import { fetchAdvisory } from "./advisory.mjs";
@@ -130,6 +137,12 @@ let status = {
 };
 
 const replaySource = config.replay ? createReplaySource() : null;
+
+// Last-briefing throttle keyed on the primary storm's id + km (issue #42).
+// Pre-fix, only `lastBriefingKm` was tracked — a new storm appearing at a
+// similar km from the previous (now-departed) storm would skip regen,
+// leaving the briefing referring to the wrong system.
+let lastBriefingKey = null; // { id } | null
 let lastBriefingKm = null;
 
 // Set when a state.json write fails. While true, level-change dispatch is
@@ -184,18 +197,31 @@ async function tick() {
     const assessment = assess(storms, config.island, config.thresholds);
     const levelChanged = assessment.overall !== state.level;
 
+    // Drop advisory-cache entries whose IDs are no longer in the active set
+    // (issue #41). Bounds memory and prevents stale advNum from causing a
+    // reused storm ID (next season) to skip a refresh.
+    pruneCacheToActive(advisoryCache, assessment.storms.map((s) => s.id));
+
     // Keep the briefing's stated distance honest as a storm closes in:
-    // regenerate on level change, first run, or a material shift in the
-    // primary storm's closest approach (> 50 km).
-    const primaryKm =
-      assessment.storms.find((s) => s.assessment.level === assessment.overall)
-        ?.assessment.closestApproachKm ?? null;
+    // regenerate on level change, first run, storm-identity change, or
+    // a material shift in the primary storm's closest approach (> 50 km).
+    const primary = assessment.storms.find((s) => s.assessment.level === assessment.overall);
+    const primaryKm = primary?.assessment.closestApproachKm ?? null;
+    const currentBriefingKey = briefingThrottleKey({ id: primary?.id ?? null });
+    const sameStorm = lastBriefingKey != null && lastBriefingKey.id === currentBriefingKey.id;
     const distMoved =
+      sameStorm &&
       lastBriefingKm != null &&
       primaryKm != null &&
       Math.abs(primaryKm - lastBriefingKm) > 50;
 
-    if (levelChanged || !status.briefing || distMoved) {
+    if (shouldRegenerateBriefing({
+      levelChanged,
+      hasBriefing: Boolean(status.briefing),
+      lastKey: lastBriefingKey,
+      currentKey: currentBriefingKey,
+      distMoved,
+    })) {
       const briefing = await generateBriefing(
         assessment,
         config.island,
@@ -203,6 +229,7 @@ async function tick() {
       );
       status.briefing = briefing.text;
       status.briefingSource = briefing.source;
+      lastBriefingKey = currentBriefingKey;
       lastBriefingKm = primaryKm;
     }
 
@@ -233,27 +260,39 @@ async function tick() {
         console.log(
           `Threat level ${previousLevel} -> ${assessment.overall} (${label ?? "live"})`
         );
-        const results = await dispatchAlert({
-          level: assessment.overall,
-          previousLevel,
-          briefing: status.briefing,
-          island: config.island,
-          alerts: config.alerts,
-          region: config.bedrock.region,
-        });
-        if (results.length > 0) console.log("Dispatch:", JSON.stringify(results));
 
-        // Web push to everyone who opted in from the browser.
-        const rising = assessment.overall !== "ALL_CLEAR";
-        const pushRes = await sendPushToAll({
-          title: `${config.island.name}: ${LEVEL_LABEL[assessment.overall]}`,
-          body: rising
-            ? (status.briefing || "").split("\n")[0]
-            : "Conditions have eased — back to all clear.",
-          level: assessment.overall,
-          url: "/",
+        // Replay mode skips dispatch by default (#40) so demo restarts don't
+        // re-fire real SES / SNS / webhook / push to operators' channels.
+        // REPLAY_DISPATCH=1 (config.replayDispatch) opts back in for E2E tests.
+        const dispatch = shouldDispatchOnTransition({
+          replay: config.replay,
+          replayDispatch: config.replayDispatch,
         });
-        if (pushRes.sent || pushRes.pruned) console.log("Push:", JSON.stringify(pushRes));
+        if (dispatch) {
+          const results = await dispatchAlert({
+            level: assessment.overall,
+            previousLevel,
+            briefing: status.briefing,
+            island: config.island,
+            alerts: config.alerts,
+            region: config.bedrock.region,
+          });
+          if (results.length > 0) console.log("Dispatch:", JSON.stringify(results));
+
+          // Web push to everyone who opted in from the browser.
+          const rising = assessment.overall !== "ALL_CLEAR";
+          const pushRes = await sendPushToAll({
+            title: `${config.island.name}: ${LEVEL_LABEL[assessment.overall]}`,
+            body: rising
+              ? (status.briefing || "").split("\n")[0]
+              : "Conditions have eased — back to all clear.",
+            level: assessment.overall,
+            url: "/",
+          });
+          if (pushRes.sent || pushRes.pruned) console.log("Push:", JSON.stringify(pushRes));
+        } else {
+          console.log(`Replay mode — skipping dispatch (set REPLAY_DISPATCH=1 to opt in)`);
+        }
       }
     }
 

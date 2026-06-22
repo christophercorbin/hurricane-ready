@@ -74,6 +74,9 @@ export async function dispatchAlert(
           previousLevel,
           island: island.name,
         }),
+        // 8s timeout (#38): a slow webhook can otherwise hold up the entire
+        // dispatch tick, delaying push fan-out to real subscribers.
+        signal: AbortSignal.timeout(8000),
       });
       results.push({ channel: "webhook", ok: res.ok });
     } catch (err) {

@@ -11,3 +11,4 @@ previews/
 **/*.tfstate
 **/*.tfstate.*
 **/.terraform.tfstate.lock.info
+test-results/

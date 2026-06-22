@@ -41,7 +41,12 @@ const ALLOWED_HOSTS = (process.env.PUSH_ALLOWED_HOSTS ?? DEFAULT_ALLOWED_HOSTS.j
   .filter(Boolean);
 
 const LEVEL_RANK = { ALL_CLEAR: 0, WATCH: 1, WARNING: 2, IMMINENT: 3 };
-const normLevel = (l) => (l in LEVEL_RANK ? l : "WATCH");
+// `Object.hasOwn` instead of `in` (#44): the latter walks the prototype chain,
+// so `"__proto__" in LEVEL_RANK` is true and a client passing minLevel:
+// "__proto__" would bypass the rank gate entirely (LEVEL_RANK["__proto__"]
+// is undefined → comparisons against undefined are always false → every push
+// goes through regardless of the subscriber's chosen minimum level).
+export const normLevel = (l) => (Object.hasOwn(LEVEL_RANK, l) ? l : "WATCH");
 
 // Each stored record: { subscription, minLevel, quiet }.
 // Migrates older records that were just a raw PushSubscription.

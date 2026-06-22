@@ -67,3 +67,24 @@ test("sendPushToAll is a no-op when push is disabled", async () => {
   assert.equal(r.sent, 0);
   assert.equal(r.pruned, 0);
 });
+
+test("normLevel falls back to WATCH for inherited-prototype keys (issue #44)", () => {
+  // The old `(l in LEVEL_RANK)` check returned true for any Object.prototype
+  // key, so a client could set minLevel: "__proto__" and bypass the rank gate
+  // (LEVEL_RANK["__proto__"] is undefined, comparisons against undefined are
+  // always false, so wants() returned true regardless of level). Object.hasOwn
+  // is the correct check.
+  assert.equal(push.normLevel("__proto__"), "WATCH", "__proto__ must not bypass the level gate");
+  assert.equal(push.normLevel("constructor"), "WATCH", "constructor must not bypass either");
+  assert.equal(push.normLevel("hasOwnProperty"), "WATCH");
+  assert.equal(push.normLevel("toString"), "WATCH");
+});
+
+test("normLevel accepts real levels and falls back on unknown strings", () => {
+  for (const real of ["ALL_CLEAR", "WATCH", "WARNING", "IMMINENT"]) {
+    assert.equal(push.normLevel(real), real);
+  }
+  assert.equal(push.normLevel("not-a-level"), "WATCH");
+  assert.equal(push.normLevel(undefined), "WATCH");
+  assert.equal(push.normLevel(null), "WATCH");
+});

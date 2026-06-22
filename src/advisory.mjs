@@ -125,6 +125,9 @@ export async function fetchAdvisory(url) {
         "User-Agent":
           "hurricane-ready (github.com/christophercorbin/hurricane-ready)",
       },
+      // 8s timeout (#38): a hung advisory fetch would stall every dispatch
+      // since the watcher's tick is single-flight.
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) throw new Error(`advisory fetch ${res.status}`);
     return parseAdvisory(await res.text());

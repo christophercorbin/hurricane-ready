@@ -12,9 +12,93 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { transitionPersistFirst, createTickLoop } from "../src/runtime.mjs";
+import { transitionPersistFirst, createTickLoop, shouldDispatchOnTransition, pruneCacheToActive, briefingThrottleKey, shouldRegenerateBriefing } from "../src/runtime.mjs";
+
+test("pruneCacheToActive drops entries whose IDs are not in the active set (issue #41)", () => {
+  // Without pruning, the advisoryCache grows for the life of the process —
+  // every storm the NHC has ever advised stays in memory, and a future
+  // storm reusing the same ID (e.g. AL01 next season) sees a stale advNum
+  // and skips a refresh that should have happened.
+  const cache = new Map([
+    ["al012025", { advNum: "3", parsed: {} }],
+    ["al022025", { advNum: "1", parsed: {} }],
+    ["al012026", { advNum: "5", parsed: {} }],
+  ]);
+  pruneCacheToActive(cache, ["al012026", "al032026"]);
+  assert.deepEqual([...cache.keys()].sort(), ["al012026"]);
+});
+
+test("pruneCacheToActive is a no-op when every cached id is still active", () => {
+  const cache = new Map([["al012026", { advNum: "5", parsed: {} }]]);
+  pruneCacheToActive(cache, ["al012026"]);
+  assert.equal(cache.size, 1);
+});
+
+test("briefingThrottleKey identifies a storm by id only (issue #42)", () => {
+  // Distance moves don't change the key. Storm identity does.
+  assert.deepEqual(briefingThrottleKey({ id: "al012026", km: 250 }), { id: "al012026" });
+  assert.deepEqual(briefingThrottleKey({ id: null, km: null }), { id: null });
+});
+
+test("shouldRegenerateBriefing fires on first run", () => {
+  const decide = (input) => shouldRegenerateBriefing(input);
+  assert.equal(decide({ levelChanged: false, hasBriefing: false, lastKey: null, currentKey: { id: "al012026" }, distMoved: false }), true);
+});
+
+test("shouldRegenerateBriefing fires on level change (regardless of distance)", () => {
+  const decide = (input) => shouldRegenerateBriefing(input);
+  assert.equal(decide({ levelChanged: true, hasBriefing: true, lastKey: { id: "al012026" }, currentKey: { id: "al012026" }, distMoved: false }), true);
+});
+
+test("shouldRegenerateBriefing fires when storm identity changes even without level change (issue #42)", () => {
+  // Pre-fix, lastBriefingKm was a bare number — a new storm appearing at a
+  // similar km from the previous one would NOT trigger regen, leaving the
+  // briefing referring to the wrong storm.
+  const decide = (input) => shouldRegenerateBriefing(input);
+  assert.equal(decide({
+    levelChanged: false, hasBriefing: true,
+    lastKey: { id: "al012026" }, currentKey: { id: "al022026" },
+    distMoved: false,
+  }), true);
+});
+
+test("shouldRegenerateBriefing fires on >50 km drift for the same storm", () => {
+  const decide = (input) => shouldRegenerateBriefing(input);
+  assert.equal(decide({
+    levelChanged: false, hasBriefing: true,
+    lastKey: { id: "al012026" }, currentKey: { id: "al012026" },
+    distMoved: true,
+  }), true);
+});
+
+test("shouldRegenerateBriefing stays put when nothing material changed", () => {
+  const decide = (input) => shouldRegenerateBriefing(input);
+  assert.equal(decide({
+    levelChanged: false, hasBriefing: true,
+    lastKey: { id: "al012026" }, currentKey: { id: "al012026" },
+    distMoved: false,
+  }), false);
+});
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+test("shouldDispatchOnTransition allows dispatch in live mode (issue #40)", () => {
+  assert.equal(shouldDispatchOnTransition({ replay: false, replayDispatch: false }), true);
+  assert.equal(shouldDispatchOnTransition({ replay: false, replayDispatch: true }), true);
+});
+
+test("shouldDispatchOnTransition suppresses dispatch in replay mode by default", () => {
+  // Without this gate, every container restart in REPLAY=1 mode re-fired
+  // SES / SNS / webhook / push to operators' real channels as the Beryl
+  // ladder climbed past WATCH, WARNING, IMMINENT, and back to ALL_CLEAR.
+  assert.equal(shouldDispatchOnTransition({ replay: true, replayDispatch: false }), false);
+});
+
+test("shouldDispatchOnTransition allows dispatch in replay mode only when explicitly opted in", () => {
+  // REPLAY_DISPATCH=1 is the escape hatch for end-to-end testing the actual
+  // channels against a real SES-verified sender.
+  assert.equal(shouldDispatchOnTransition({ replay: true, replayDispatch: true }), true);
+});
 
 test("transitionPersistFirst calls persist with the new level on its way through", () => {
   let captured = null;
