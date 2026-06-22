@@ -92,9 +92,7 @@ resource "aws_cloudfront_distribution" "app" {
   # Default behavior: respect origin Cache-Control headers (issue #24).
   # CachingOptimized lets icons / OG image / preloaded assets cache at the
   # edge (origin sends `public, max-age=86400`) while the service worker and
-  # manifest stay live (origin sends `no-cache`). The dashboard HTML at /
-  # has no Cache-Control, so CloudFront uses the policy's default 24h —
-  # acceptable, deploys invalidate the cache anyway.
+  # manifest stay live (origin sends `no-cache`).
   default_cache_behavior {
     target_origin_id       = "alb-vpc-origin"
     viewer_protocol_policy = "redirect-to-https"
@@ -106,10 +104,41 @@ resource "aws_cloudfront_distribution" "app" {
     response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
   }
 
-  # Belt-and-suspenders: pin /api/* and /healthz to CachingDisabled so even
-  # if origin Cache-Control headers were ever misconfigured the dynamic
-  # endpoints would not get cached. Origin policy is AllViewer here because
-  # the API depends on request headers (Accept-Encoding, future auth).
+  # Belt-and-suspenders: pin dynamic endpoints to CachingDisabled so even if
+  # origin Cache-Control headers ever drifted, these never cache at the edge.
+  # `/` and `/index.html` cover the dashboard HTML, which the origin sends
+  # without a Cache-Control header — under CachingOptimized that would
+  # default to a 24h TTL and viewers would see stale HTML for up to a day
+  # after each deploy (no invalidation is wired up in release.yml).
+  # /api/* covers /api/status (polled every 60s) and the push subscribe
+  # endpoints. /healthz must always reach the origin so health probes see
+  # the live `persistenceBroken` / `stale` flags.
+  ordered_cache_behavior {
+    path_pattern           = "/"
+    target_origin_id       = "alb-vpc-origin"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    cache_policy_id            = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id   = "216adef6-5c7f-47e4-b989-5492eafa07d3" # AllViewer
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "/index.html"
+    target_origin_id       = "alb-vpc-origin"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    cache_policy_id            = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id   = "216adef6-5c7f-47e4-b989-5492eafa07d3" # AllViewer
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+  }
+
   ordered_cache_behavior {
     path_pattern           = "/api/*"
     target_origin_id       = "alb-vpc-origin"
