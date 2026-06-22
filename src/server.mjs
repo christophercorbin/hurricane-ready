@@ -379,7 +379,7 @@ server.listen(config.port, async () => {
   loop.start();
 });
 
-// Graceful shutdown (issue #46): stop scheduling, drain the in-flight tick,
+// Graceful shutdown (issue #45): stop scheduling, drain the in-flight tick,
 // then close the HTTP server. SIGKILL after 10s if anything hangs.
 async function shutdown(sig) {
   console.log(`Received ${sig}, draining…`);
