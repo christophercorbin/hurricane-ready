@@ -16,7 +16,13 @@ import { isIP } from "node:net";
 
 // Private / loopback / link-local / metadata IPv4 + IPv6 ranges.
 const PRIVATE_IPV4 = /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[0-1])\.|0\.)/;
-const PRIVATE_IPV6 = /^(::1|::ffff:127\.|fc|fd|fe[89ab])/i;
+const PRIVATE_IPV6 = /^(::1|fc|fd|fe[89ab])/i;
+// Any IPv4-mapped IPv6 form (`::ffff:…` after Node normalizes the URL) is
+// rejected outright. `::ffff:a9fe:a9fe` is the metadata IP; `::ffff:127.x`
+// is loopback; `::ffff:0a00:`-`0aff:` is 10.0.0.0/8. There's no legitimate
+// reason to point at a v4 address through its v6-mapped form, so we don't
+// try to decode each variant — just refuse the prefix.
+const IPV4_MAPPED_IPV6 = /^::ffff:/i;
 
 const METADATA_HOSTS = new Set([
   "metadata",
@@ -32,6 +38,7 @@ function isPrivateIp(host) {
     : host;
   if (!isIP(bare)) return false;
   if (PRIVATE_IPV4.test(bare)) return true;
+  if (IPV4_MAPPED_IPV6.test(bare)) return true; // refuse all v4-mapped v6 forms
   if (PRIVATE_IPV6.test(bare)) return true;
   return false;
 }

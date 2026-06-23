@@ -52,6 +52,16 @@ test("rejects loopback IPv6 (::1) — including bracketed form in URL", () => {
   assert.throws(() => validateOutboundUrl("X", "https://[::1]/"), /private\/loopback/i);
 });
 
+test("rejects IPv4-mapped IPv6 forms — closes the ::ffff:<v4> SSRF bypass", () => {
+  // URL normalization turns these into ::ffff:a9fe:a9fe / ::ffff:7f00:1 / ::ffff:a00:5,
+  // which pre-fix passed validation because the regex only matched ::ffff:127.
+  // After fix, ANY ::ffff: prefix is refused — no legitimate config points at
+  // a v4 address through its v6-mapped form.
+  assert.throws(() => validateOutboundUrl("X", "https://[::ffff:169.254.169.254]/iam/"), /private\/loopback/i);
+  assert.throws(() => validateOutboundUrl("X", "https://[::ffff:127.0.0.1]/"), /private\/loopback/i);
+  assert.throws(() => validateOutboundUrl("X", "https://[::ffff:10.0.0.5]/"), /private\/loopback/i);
+});
+
 test("rejects GCP metadata hostname", () => {
   assert.throws(
     () => validateOutboundUrl("X", "https://metadata.google.internal/"),
