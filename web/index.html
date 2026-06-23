@@ -83,6 +83,17 @@
     .settings-wrap { position: relative; }
     .settings-btn { background: rgba(255,255,255,0.04); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; width: 32px; height: 32px; font-size: 1rem; cursor: pointer; line-height: 1; }
     .settings-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* Service-worker update prompt (#50). Shown when a new SW is installed
+       and waiting for an explicit refresh. */
+    .hr-update-toast {
+      position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%);
+      padding: 0.6rem 1rem; background: var(--accent); color: #0b1220;
+      border: 1px solid var(--accent); border-radius: 999px; font: inherit;
+      font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+      z-index: 9999;
+    }
+    .hr-update-toast:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
     .settings-panel { position: absolute; right: 0; top: 38px; z-index: 700; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 170px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
     .settings-panel label { font-size: 0.78rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.25rem; }
     .settings-panel select { background: var(--card-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.4rem; font-size: 0.85rem; }
@@ -369,8 +380,8 @@
       <span class="pill" id="mode"></span>
       <span class="pill" id="updated"></span>
       <div class="settings-wrap">
-        <button id="settings-btn" class="settings-btn" type="button" aria-label="Settings" aria-expanded="false">⚙</button>
-        <div id="settings-panel" class="settings-panel" hidden>
+        <button id="settings-btn" class="settings-btn" type="button" aria-label="Settings" aria-expanded="false" aria-haspopup="true" aria-controls="settings-panel">⚙</button>
+        <div id="settings-panel" class="settings-panel" role="dialog" aria-label="Settings" hidden>
           <label>Temperature
             <select id="set-temp"><option value="C">°C</option><option value="F">°F</option></select>
           </label>
@@ -674,11 +685,72 @@
       const t = document.getElementById("set-temp"), w = document.getElementById("set-wind"), th = document.getElementById("set-theme");
       t.value = settings.temp; w.value = settings.wind; th.value = settings.theme;
       const btn = document.getElementById("settings-btn"), panel = document.getElementById("settings-panel");
-      btn.addEventListener("click", (e) => { e.stopPropagation(); const open = panel.hidden; panel.hidden = !open; btn.setAttribute("aria-expanded", String(open)); });
-      document.addEventListener("click", (e) => { if (!panel.hidden && !panel.contains(e.target) && e.target !== btn) { panel.hidden = true; btn.setAttribute("aria-expanded", "false"); } });
+      // Settings panel a11y (#47): on open, focus moves into the panel; on
+      // close, focus returns to the trigger button; Escape closes from
+      // anywhere inside the panel. Keyboard-only users can now reach and
+      // dismiss the menu.
+      function openSettings() {
+        panel.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        panel.querySelector("select")?.focus();
+      }
+      function closeSettings({ restoreFocus = true } = {}) {
+        if (panel.hidden) return;
+        panel.hidden = true;
+        btn.setAttribute("aria-expanded", "false");
+        if (restoreFocus) btn.focus();
+      }
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (panel.hidden) openSettings(); else closeSettings({ restoreFocus: false });
+      });
+      document.addEventListener("click", (e) => {
+        if (!panel.hidden && !panel.contains(e.target) && e.target !== btn) {
+          closeSettings({ restoreFocus: false });
+        }
+      });
+      panel.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { e.preventDefault(); closeSettings(); }
+      });
       const onChange = () => { settings.temp = t.value; settings.wind = w.value; settings.theme = th.value; saveSettings(); applyTheme(); if (lastStatus) render(lastStatus); };
       t.onchange = onChange; w.onchange = onChange; th.onchange = onChange;
       if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (settings.theme === "auto") applyTheme(); });
+    }
+
+    // Live-region update-on-change (#49). Each poll re-renders the same
+    // banner / civil / flood / arrival / wave text most of the time; without
+    // this guard, screen readers re-announce the same string every minute
+    // when a civil alert is active (assertive) or whenever a level title
+    // hasn't changed. Skipping the DOM write when text matches keeps the
+    // live region quiet.
+    function setLiveText(el, text) {
+      if (!el || el.__hrLast === text) return;
+      el.__hrLast = text;
+      el.textContent = text;
+    }
+    function setLiveHtml(el, html) {
+      if (!el || el.__hrLast === html) return;
+      el.__hrLast = html;
+      el.innerHTML = html;
+    }
+
+    // Briefing sanitization (#51). Strip bidi / format / invisible-control
+    // characters that could visually reverse evacuation guidance (U+202E
+    // RIGHT-TO-LEFT OVERRIDE) and cap at 4 KB so a degenerate Bedrock
+    // output can't blow out layout or scroll the user past the rest of
+    // the dashboard.
+    // U+202A-202E: explicit bidi overrides   (LRE, RLE, PDF, LRO, RLO)
+    // U+2066-2069: bidi isolates             (LRI, RLI, FSI, PDI)
+    // U+200E/200F: LTR / RTL marks
+    // U+FEFF:      zero-width no-break space / BOM
+    // Built via RegExp() so no literal control chars sit in the source.
+    const BIDI_CTL_RE = new RegExp(
+      "[\\u202A-\\u202E\\u2066-\\u2069\\u200E\\u200F\\uFEFF]",
+      "g"
+    );
+    function sanitizeBriefing(s) {
+      if (s == null) return "—";
+      return String(s).replace(BIDI_CTL_RE, "").slice(0, 4000);
     }
 
     function icon(code) {
@@ -973,7 +1045,8 @@
           "flash flooding likely — avoid flood-prone roads",
           "dangerous flooding — stay off the roads if you can"][lvl];
         fn.hidden = false;
-        fn.innerHTML = `<span class="chance ${lvl <= 2 ? "medium" : "high"}">Flood watch</span> About ${total24} mm of rain expected over 24h — ${msg}.`;
+        // Polite live region — dedup via setLiveHtml (#49)
+        setLiveHtml(fn, `<span class="chance ${lvl <= 2 ? "medium" : "high"}">Flood watch</span> About ${total24} mm of rain expected over 24h — ${msg}.`);
       }
     }
 
@@ -1137,7 +1210,8 @@
       if (s.waves && s.waves.near) {
         wn.hidden = false;
         const dev = (t && t.formationExpected === false) ? " No tropical development is expected." : "";
-        wn.innerHTML = `<span class="lead">🌀 A tropical wave is crossing our area</span> (axis near ${s.waves.nearAxisLonW}°W) — expect passing showers and a gusty breeze.${dev}`;
+        // Polite live region — dedup via setLiveHtml (#49)
+        setLiveHtml(wn, `<span class="lead">🌀 A tropical wave is crossing our area</span> (axis near ${s.waves.nearAxisLonW}°W) — expect passing showers and a gusty breeze.${dev}`);
       } else { wn.hidden = true; }
       if (!t) { sum.textContent = "The Atlantic outlook is unavailable right now."; areas.innerHTML = ""; src.textContent = ""; return; }
       sum.innerHTML = `<span class="lead">${t.headline}</span>` + (t.activeSystemsText ? ` ${t.activeSystemsText}` : "");
@@ -1188,7 +1262,8 @@
         const when = arr.hours === 0 ? "are arriving now"
           : `could reach us by about ${timeLabel(new Date(Date.parse(s.updatedAt) + arr.hours * 3600000).toISOString())} (~+${arr.hours}h)`;
         an.hidden = false;
-        an.innerHTML = `<span class="chance high">Winds</span> Tropical-storm-force winds (34&nbsp;kt+) from ${arr.name} ${when}. Finish preparations early.`;
+        // Polite live region — dedup via setLiveHtml (#49)
+        setLiveHtml(an, `<span class="chance high">Winds</span> Tropical-storm-force winds (34&nbsp;kt+) from ${arr.name} ${when}. Finish preparations early.`);
       } else { an.hidden = true; }
       const passText = (a) => {
         const p = a.pass;
@@ -1296,14 +1371,27 @@
         ca.hidden = false;
         ca.href = c.url || "https://brb-secondary.capews.com/capews/public/active";
         const n = c.count || 1;
-        document.getElementById("civil-text").innerHTML =
-          `<b>Official emergency alert${n > 1 ? "s" : ""} in effect.</b> Barbados DEM has ${n > 1 ? n + " active alerts" : "an active alert"} — tap for details on CAP.CAP.`;
+        // Assertive live region — dedup via setLiveHtml (#49) so screen
+        // readers don't re-announce "Official emergency alert in effect"
+        // every 60 s while the same CAP alert is still active.
+        setLiveHtml(
+          document.getElementById("civil-text"),
+          `<b>Official emergency alert${n > 1 ? "s" : ""} in effect.</b> Barbados DEM has ${n > 1 ? n + " active alerts" : "an active alert"} — tap for details on CAP.CAP.`
+        );
       } else {
         ca.hidden = true;
       }
     }
 
     function render(s) {
+      // Defensive defaults (#46): a partial /api/status (older SW cache,
+      // 5xx-but-parseable, schema drift on deploy boundary) must not abort
+      // the renderer chain. Without these guards `s.island.name` and
+      // `s.storms.map` would throw and freeze the dashboard until reload.
+      if (!s || typeof s !== "object") return;
+      if (!s.island) { console.warn("render: missing s.island, skipping"); return; }
+      s.storms = Array.isArray(s.storms) ? s.storms : [];
+      s.history = Array.isArray(s.history) ? s.history : [];
       lastStatus = s;
       renderCivil(s);
       document.getElementById("island").textContent = s.island.name;
@@ -1316,11 +1404,12 @@
       const banner = document.getElementById("banner");
       banner.className = "banner " + s.level;
       document.getElementById("banner-title").textContent = LEVEL_TITLE[s.level];
-      document.getElementById("banner-sub").textContent = LEVEL_SUB[s.level];
+      // Banner sub is in a polite live region — only update DOM on change (#49)
+      setLiveText(document.getElementById("banner-sub"), LEVEL_SUB[s.level]);
       document.getElementById("banner-storms").innerHTML = s.storms.length
         ? `tracking<b>${s.storms.map(x => x.name).join(", ")}</b>` : "";
 
-      document.getElementById("briefing").textContent = s.briefing ?? "—";
+      document.getElementById("briefing").textContent = sanitizeBriefing(s.briefing);
       document.getElementById("briefing-source").textContent =
         s.briefingSource === "claude" ? "✨ Written by Claude on Amazon Bedrock · level decided by deterministic engine" :
         s.briefingSource === "template" ? "Standard guidance · level decided by deterministic engine" : "";
@@ -1451,7 +1540,10 @@
     async function refresh(first) {
       try {
         const res = await fetch("/api/status");
-        render(await res.json());
+        if (!res.ok) return; // 5xx — keep the prior render; the next tick retries
+        const payload = await res.json();
+        // Render-time exceptions (#46) must not freeze the polling loop.
+        try { render(payload); } catch (err) { console.error("render failed:", err); }
         // The sections above grow once live data lands, so an initial
         // deep-link (e.g. /#sea) needs re-aligning after the first render.
         if (first && location.hash) {
@@ -1459,6 +1551,49 @@
           if (el) requestAnimationFrame(() => el.scrollIntoView());
         }
       } catch { /* transient */ }
+    }
+
+    // SW update toast (#50). When a fresh SW reaches "installed" and an
+    // existing controller is in place (i.e. this isn't the first install),
+    // surface a button so the user opts in rather than getting a forced
+    // mid-session reload. The matching SKIP_WAITING handler is in sw.js.
+    // The reload-on-controllerchange listener is only ARMED after the user
+    // explicitly accepts an update toast. Otherwise the FIRST SW install on
+    // a fresh client triggers a controllerchange (sw.js calls clients.claim
+    // on activate) and we'd reload the page mid-initialization — which both
+    // breaks any test that expects a stable post-load DOM and is a poor UX
+    // (an unrequested reload on every first visit).
+    let userInitiatedSkip = false;
+    function showUpdateToast(waiting) {
+      if (document.getElementById("hr-update-toast")) return;
+      const t = document.createElement("button");
+      t.id = "hr-update-toast";
+      t.className = "hr-update-toast";
+      t.type = "button";
+      t.textContent = "Update available — tap to refresh";
+      t.addEventListener("click", () => {
+        t.disabled = true;
+        t.textContent = "Refreshing…";
+        userInitiatedSkip = true;
+        waiting.postMessage({ type: "SKIP_WAITING" });
+      });
+      document.body.appendChild(t);
+    }
+    function watchForSwUpdates(reg) {
+      if (reg.waiting && navigator.serviceWorker.controller) showUpdateToast(reg.waiting);
+      reg.addEventListener("updatefound", () => {
+        const next = reg.installing;
+        if (!next) return;
+        next.addEventListener("statechange", () => {
+          if (next.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateToast(next);
+          }
+        });
+      });
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!userInitiatedSkip) return; // first-install / unrelated → ignore
+        location.reload();
+      });
     }
 
     // The server polls NHC every ~15 min and the API just returns its cached
@@ -1478,7 +1613,9 @@
       window.addEventListener("online", () => { setOffline(false); refresh(false); });
       window.addEventListener("offline", () => setOffline(true));
       if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/sw.js").then(initAlerts).catch(() => {});
+        navigator.serviceWorker.register("/sw.js")
+          .then((reg) => { initAlerts(reg); watchForSwUpdates(reg); })
+          .catch(() => {});
       }
     };
     if (document.readyState === "complete") start();

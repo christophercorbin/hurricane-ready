@@ -1,5 +1,9 @@
 /* Hurricane-Ready service worker: offline shell + cached status + push. */
-const CACHE = "hr-cache-v1";
+// Bump on every deployment that changes any SHELL asset (#50). Without a
+// bump, the activate handler below keeps the old cache and viewers see
+// stale shell HTML until they clear storage. The matching client flow in
+// index.html shows an "Update available" toast when a new SW is waiting.
+const CACHE = "hr-cache-v2";
 const SHELL = [
   "/",
   "/index.html",
@@ -10,9 +14,17 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())
-  );
+  // No skipWaiting here (#50): a new SW now waits until the client opts in
+  // via the update toast (postMessage SKIP_WAITING), so mid-session users
+  // are not forced onto a fresh controller without warning.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
+});
+
+// Client-driven activation. The client posts SKIP_WAITING after the user
+// clicks the update toast; this is the explicit consent the install handler
+// no longer assumes.
+self.addEventListener("message", (e) => {
+  if (e.data && e.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
