@@ -12,9 +12,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           cache: npm
@@ -38,7 +38,7 @@ jobs:
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Build image
         run: docker build -t hurricane-ready:ci .
@@ -107,7 +107,7 @@ jobs:
           # dashboard serves
           curl -sf http://localhost:8080/ | grep -q "Hurricane-Ready"
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           cache: npm
@@ -125,13 +125,16 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Build image
         run: docker build -t hurricane-ready:scan .
 
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@master
+        # SHA-pinned (#36): floating @master shipped arbitrary upstream code
+        # into the runner; a SHA pin gives us a deterministic, reviewable
+        # reference. Bump via Dependabot's github-actions ecosystem.
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: hurricane-ready:scan
           format: table
