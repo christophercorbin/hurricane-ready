@@ -88,9 +88,19 @@ resource "aws_cloudfront_response_headers_policy" "security" {
     }
     content_security_policy {
       override = true
+      # script-src: 'unsafe-inline' dropped (#29). The dashboard has no
+      # inline <script> tags anymore — all JS lives in /app.js, served
+      # same-origin under 'self'. Leaflet still pulls from cdnjs (SRI-
+      # pinned in web/index.html).
+      # style-src: 'unsafe-inline' kept because the dashboard's large
+      # inline <style> block hasn't been extracted yet — that's a
+      # follow-up to this PR. The XSS-mitigation impact of `unsafe-inline`
+      # on script-src is much greater than on style-src (style XSS is
+      # mostly an information-disclosure surface, not RCE), so this is
+      # the right slice.
       content_security_policy = join("; ", [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
+        "script-src 'self' https://cdnjs.cloudflare.com",
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
         "img-src 'self' data: https://*.basemaps.cartocdn.com https://*.rainviewer.com https://cdn.star.nesdis.noaa.gov",
         "connect-src 'self' https://api.rainviewer.com",
