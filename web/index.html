@@ -1038,7 +1038,12 @@
       let lvl = total24 < 15 ? 0 : total24 < 40 ? 1 : total24 < 75 ? 2 : total24 < 125 ? 3 : 4;
       if (peakHr >= 20 && lvl > 0 && lvl < 4) lvl++; // intense bursts flood faster
       const fn = document.getElementById("flood-note");
-      if (lvl === 0) { fn.hidden = true; }
+      if (lvl === 0) {
+        // Clear the dedup tag (#49) so a hide→show transition with the
+        // same text still re-announces to screen readers.
+        fn.hidden = true;
+        fn.__hrLast = undefined;
+      }
       else {
         const msg = ["", "minor ponding possible in low-lying spots",
           "flash flooding possible in low-lying areas",
@@ -1212,7 +1217,7 @@
         const dev = (t && t.formationExpected === false) ? " No tropical development is expected." : "";
         // Polite live region — dedup via setLiveHtml (#49)
         setLiveHtml(wn, `<span class="lead">🌀 A tropical wave is crossing our area</span> (axis near ${s.waves.nearAxisLonW}°W) — expect passing showers and a gusty breeze.${dev}`);
-      } else { wn.hidden = true; }
+      } else { wn.hidden = true; wn.__hrLast = undefined; }
       if (!t) { sum.textContent = "The Atlantic outlook is unavailable right now."; areas.innerHTML = ""; src.textContent = ""; return; }
       sum.innerHTML = `<span class="lead">${t.headline}</span>` + (t.activeSystemsText ? ` ${t.activeSystemsText}` : "");
       if (t.areas && t.areas.length) {
@@ -1264,7 +1269,7 @@
         an.hidden = false;
         // Polite live region — dedup via setLiveHtml (#49)
         setLiveHtml(an, `<span class="chance high">Winds</span> Tropical-storm-force winds (34&nbsp;kt+) from ${arr.name} ${when}. Finish preparations early.`);
-      } else { an.hidden = true; }
+      } else { an.hidden = true; an.__hrLast = undefined; }
       const passText = (a) => {
         const p = a.pass;
         if (!p || p.kind === "distant") return "";
@@ -1380,6 +1385,10 @@
         );
       } else {
         ca.hidden = true;
+        // Same dedup-clearing rationale (#49): if a CAP alert returns with
+        // the same wording later, the assertive live region must re-announce.
+        const cText = document.getElementById("civil-text");
+        if (cText) cText.__hrLast = undefined;
       }
     }
 
