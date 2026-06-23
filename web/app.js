@@ -6,6 +6,22 @@
       IMMINENT: "Finish preparations and be ready to shelter.",
     };
     const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    // Date math is anchored to the island, not the browser's local TZ (#48).
+    // A user opening the dashboard in UTC or Pacific time previously saw the
+    // wrong day-of-week labels on the 7-day strip and the wrong wall-clock
+    // for "winds reach us by X" — confusing during an actual storm.
+    const ISLAND_TZ = "America/Barbados";
+    const ISLAND_DOW_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: ISLAND_TZ, weekday: "short" });
+    const ISLAND_TIME_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: ISLAND_TZ, hour: "numeric", minute: "2-digit", hour12: true });
+    function islandDOW(dateStr) {
+      // Open-Meteo daily.date is YYYY-MM-DD in the requested TZ (island). We
+      // parse as UTC midnight and format in island TZ to get a stable label.
+      if (!dateStr) return "—";
+      const d = new Date(`${dateStr}T00:00:00Z`);
+      if (!Number.isFinite(d.getTime())) return "—";
+      // Intl returns "Sun"/"Mon"/etc with en-GB.
+      return ISLAND_DOW_FMT.format(d);
+    }
 
     // ---- Settings: units + theme, remembered in localStorage ----
     const settings = { temp: "C", wind: "kmh", theme: "auto" };
@@ -190,21 +206,26 @@
       code >= 51 && code <= 55 ? "drizzly" :
       code === 45 || code === 48 ? "foggy" :
       desc.toLowerCase();
+    // Compact "1pm" / "12am" form in island TZ (#48). Used in the hourly
+    // strip — pre-fix used d.getHours() which drifts with the viewer's
+    // local TZ, making "1pm" mean different things to different users.
+    const HOUR_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: ISLAND_TZ, hour: "numeric", hour12: true });
     const hourLabel = (iso) => {
-      const d = new Date(iso);
-      let h = d.getHours();
-      const ap = h >= 12 ? "pm" : "am";
-      h = h % 12; if (h === 0) h = 12;
-      return h + ap;
-    };
-    const timeLabel = (iso) => {
       if (!iso) return "—";
       const d = new Date(iso);
-      let h = d.getHours();
-      const m = String(d.getMinutes()).padStart(2, "0");
-      const ap = h >= 12 ? "pm" : "am";
-      h = h % 12; if (h === 0) h = 12;
-      return `${h}:${m} ${ap}`;
+      if (!Number.isFinite(d.getTime())) return "—";
+      // Intl gives "1 pm" / "12 am" with a space; collapse to "1pm".
+      return HOUR_FMT.format(d).toLowerCase().replace(/\s/g, "");
+    };
+    const timeLabel = (iso) => {
+      // Format in island TZ (#48). Pre-fix used d.getHours() which is the
+      // browser's local TZ — a UK user opening this saw sunrise/sunset and
+      // storm-arrival times shifted by their offset.
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (!Number.isFinite(d.getTime())) return "—";
+      // Intl returns e.g. "1:24 pm" with en-GB + hour12.
+      return ISLAND_TIME_FMT.format(d).toLowerCase();
     };
     const MOON_ICONS = {
       "New moon": "🌑", "Waxing crescent": "🌒", "First quarter": "🌓",
@@ -361,7 +382,7 @@
       age.textContent = o && o.generatedAt ? "Updated " + agoText(o.generatedAt) + " · Open-Meteo" : "";
       if (!o || !o.daily || !o.daily.length) { wrap.innerHTML = '<p class="summary">Forecast unavailable right now.</p>'; document.getElementById("forecast-summary").textContent = ""; return; }
       wrap.innerHTML = o.daily.map((d, idx) => {
-        const dow = idx === 0 ? "Today" : DOW[new Date(d.date + "T00:00").getDay()];
+        const dow = idx === 0 ? "Today" : islandDOW(d.date);
         const rain = d.rainProb != null ? `<div class="rain" title="Chance of rain">💧 ${d.rainProb}%</div>` : "";
         return `<div class="day"><div class="dow">${dow}</div><div class="ico" aria-hidden="true">${icon(d.code)}</div>
           <div><span class="hi">${fmtDeg(d.maxC)}</span> <span class="lo">${fmtDeg(d.minC)}</span></div>${rain}</div>`;

@@ -10,6 +10,13 @@ import webpush from "web-push";
 import { writeJsonAtomic, readJsonSafe } from "./storage.mjs";
 import { isAllowedPushEndpoint } from "./endpoint.mjs";
 import { computeUnsubscribeToken, unsubscribeTokenMatches } from "./unsubscribe-token.mjs";
+import { mapWithConcurrency } from "./concurrency.mjs";
+
+// Cap concurrent webpush sends (#56). Prior Promise.all(subs.map(...)) fired
+// up to MAX_SUBSCRIPTIONS (50,000) HTTPS requests concurrently — sockets
+// exhausted, SDK OOM'd, watcher tick blocked until the slowest. 50 is a
+// sensible default for a 256-CPU Fargate task; override per deployment.
+const PUSH_CONCURRENCY = Math.max(1, Number(process.env.PUSH_CONCURRENCY || 50));
 
 const PUBLIC = process.env.VAPID_PUBLIC_KEY || "";
 const PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
@@ -141,25 +148,25 @@ function wants(rec, level) {
 }
 
 // Fan out one notification to matching subscribers. Expired subscriptions
-// (410 Gone / 404) are pruned so the list self-heals.
+// (410 Gone / 404) are pruned so the list self-heals. Concurrency is capped
+// at PUSH_CONCURRENCY (#56) — prior unbounded fan-out exhausted sockets at
+// even a few thousand subscribers and blocked the watcher tick.
 export async function sendPushToAll(payload) {
   const level = normLevel(payload && payload.level);
   if (!pushEnabled || subs.length === 0) return { sent: 0, pruned: 0, skipped: 0 };
   const body = JSON.stringify(payload);
   const dead = [];
   let sent = 0, skipped = 0;
-  await Promise.all(
-    subs.map(async (rec) => {
-      if (!wants(rec, level)) { skipped += 1; return; }
-      try {
-        await webpush.sendNotification(rec.subscription, body, { TTL: 3600, urgency: "high" });
-        sent += 1;
-      } catch (err) {
-        if (err.statusCode === 410 || err.statusCode === 404) dead.push(rec.subscription.endpoint);
-        else console.warn(`Push send failed (${err.statusCode || err.message})`);
-      }
-    })
-  );
+  await mapWithConcurrency(subs, PUSH_CONCURRENCY, async (rec) => {
+    if (!wants(rec, level)) { skipped += 1; return; }
+    try {
+      await webpush.sendNotification(rec.subscription, body, { TTL: 3600, urgency: "high" });
+      sent += 1;
+    } catch (err) {
+      if (err.statusCode === 410 || err.statusCode === 404) dead.push(rec.subscription.endpoint);
+      else console.warn(`Push send failed (${err.statusCode || err.message})`);
+    }
+  });
   if (dead.length) {
     subs = subs.filter((r) => !dead.includes(r.subscription.endpoint));
     save();

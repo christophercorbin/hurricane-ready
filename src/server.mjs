@@ -18,6 +18,7 @@ import {
   shouldRegenerateBriefing,
 } from "./runtime.mjs";
 import { loadAssets, lookupAsset } from "./assets.mjs";
+import { weakEtag } from "./etag.mjs";
 import { fetchLiveStorms, createReplaySource } from "./nhc.mjs";
 import { fetchAdvisory } from "./advisory.mjs";
 import { fetchCurrentWeather, fetchOutlook } from "./weather.mjs";
@@ -137,6 +138,13 @@ let status = {
 };
 
 const replaySource = config.replay ? createReplaySource() : null;
+
+// Cached serialization + ETag for /api/status (issue #55). Status only
+// changes once per tick — re-serializing on every poll is wasted CPU.
+// Updated at the end of tick() with one stringify + one hash; all other
+// requests do a header compare.
+let statusBody = JSON.stringify(status);
+let statusEtag = weakEtag(statusBody);
 
 // Last-briefing throttle keyed on the primary storm's id + km (issue #42).
 // Pre-fix, only `lastBriefingKm` was tracked — a new storm appearing at a
@@ -325,6 +333,10 @@ async function tick() {
       replayLabel: label,
       history: state.history,
     };
+    // Refresh the cached status body + etag (#55). One stringify and one
+    // hash per tick replaces a stringify on every poll.
+    statusBody = JSON.stringify(status);
+    statusEtag = weakEtag(statusBody);
   } catch (err) {
     console.error("Tick failed:", err.message);
   }
@@ -339,11 +351,21 @@ const server = createServer((req, res) => {
     return;
   }
   if (req.method === "GET" && req.url === "/api/status") {
+    // Conditional GET (#55). Polling browsers receive a 304 (header-only)
+    // for the ~14 of every 15 minutes when status hasn't changed in live
+    // mode — the cached body is a single string we hold module-scoped
+    // and only refresh inside tick().
+    if (req.headers["if-none-match"] === statusEtag) {
+      res.writeHead(304, { "ETag": statusEtag, "Cache-Control": "no-cache" });
+      res.end();
+      return;
+    }
     res.writeHead(200, {
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
+      "ETag": statusEtag,
     });
-    res.end(JSON.stringify(status));
+    res.end(statusBody);
     return;
   }
   if (req.method === "GET" && req.url === "/healthz") {
