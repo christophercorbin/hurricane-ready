@@ -1,9 +1,38 @@
+import { validateOutboundUrl } from "./url-safety.mjs";
+
 const num = (v, fallback) => (v != null && v !== "" ? Number(v) : fallback);
 const list = (v) =>
   (v ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+
+// Outbound URL allowlists (#53). Hosts the server is allowed to fetch
+// from. Operators who need to point at a different upstream (mirror,
+// staging) should widen these by editing the source — env-driven URL
+// overrides are validated against this list, so a typo / leaked env
+// can't redirect outbound traffic to attacker-controlled hosts or to
+// AWS metadata.
+const NHC_HOSTS = ["www.nhc.noaa.gov", "nhc.noaa.gov"];
+const CAPEWS_HOSTS = [".capews.com"]; // strict subdomains only
+
+// Validate and apply defaults. Each call throws on bad config — the
+// server refuses to boot, which is exactly what you want when a URL
+// is misconfigured.
+const nhcUrl = (process.env.NHC_URL ?? "https://www.nhc.noaa.gov/CurrentStorms.json");
+validateOutboundUrl("NHC_URL", nhcUrl, { allowedHosts: NHC_HOSTS });
+
+if (process.env.CAPEWS_ACTIVE_URL) {
+  validateOutboundUrl("CAPEWS_ACTIVE_URL", process.env.CAPEWS_ACTIVE_URL, { allowedHosts: CAPEWS_HOSTS });
+}
+if (process.env.CAPEWS_PUBLIC_URL) {
+  validateOutboundUrl("CAPEWS_PUBLIC_URL", process.env.CAPEWS_PUBLIC_URL, { allowedHosts: CAPEWS_HOSTS });
+}
+if (process.env.WEBHOOK_URL) {
+  // Webhook is operator-configurable (Slack/Discord/custom) — no host
+  // allowlist, but still https-only and no private/loopback/metadata IPs.
+  validateOutboundUrl("WEBHOOK_URL", process.env.WEBHOOK_URL);
+}
 
 export const config = {
   // Island under watch (defaults: Barbados)
@@ -53,6 +82,5 @@ export const config = {
   },
 
   stateFile: process.env.STATE_FILE ?? "/data/state.json",
-  nhcUrl:
-    process.env.NHC_URL ?? "https://www.nhc.noaa.gov/CurrentStorms.json",
+  nhcUrl,
 };

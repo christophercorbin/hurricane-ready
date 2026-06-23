@@ -35,6 +35,36 @@ const TEMPLATES = {
     `${s?.name ?? "A storm"} is expected to affect ${island} within roughly 48 hours or is already nearby. Finish preparations and be ready to shelter.\n\n- Stay indoors away from windows once conditions deteriorate\n- Move to your safe room or shelter if instructed\n- Do not go outside during the eye calm\n- Keep radio or phone on official channels\n- Check on neighbours only while it is safe\n\nAlways follow official guidance from Barbados Meteorological Services and the Department of Emergency Management.`,
 };
 
+/**
+ * Bedrock output validation (issue #52).
+ *
+ * The system prompt orders Claude to never change the engine's level —
+ * but a prompt-injection attempt smuggled in via NHC text (or a model
+ * that drifts) could announce the wrong level in the briefing. Validate
+ * the output: if any UPPERCASE level token OTHER than the engine's
+ * decision appears, treat the briefing as drifted and the caller falls
+ * back to the deterministic template.
+ *
+ * Conservative on purpose: lowercase "watch" / "warning" are normal
+ * English. Only the explicit UPPERCASE level tokens — which Claude has
+ * no reason to write spontaneously — count as a deviation.
+ */
+const LEVEL_PATTERNS = [
+  ["ALL_CLEAR", /\bALL[_ -]?CLEAR\b/],
+  ["WATCH",     /\bWATCH\b/],
+  ["WARNING",   /\bWARNING\b/],
+  ["IMMINENT",  /\bIMMINENT\b/],
+];
+
+export function looksConsistentWithLevel(text, expectedLevel) {
+  if (!text || typeof text !== "string") return false;
+  for (const [name, re] of LEVEL_PATTERNS) {
+    if (name === expectedLevel) continue;
+    if (re.test(text)) return false;
+  }
+  return true;
+}
+
 export function templateBriefing(level, islandName, primaryStorm) {
   const base = TEMPLATES[level](islandName, primaryStorm);
   const pass = primaryStorm?.assessment?.pass;
@@ -85,6 +115,19 @@ export async function generateBriefing(assessment, island, bedrockConfig) {
     const text =
       result.output?.message?.content?.map((c) => c.text ?? "").join("") ?? "";
     if (!text) throw new Error("empty briefing");
+    // Output validation (#52): if the briefing announces a level different
+    // from the engine's decision (prompt-injection from NHC text, model
+    // drift), fall back to the deterministic template rather than ship
+    // mis-labeled safety guidance.
+    if (!looksConsistentWithLevel(text, assessment.overall)) {
+      console.warn(
+        `Briefing mentions a level inconsistent with the engine's decision (${assessment.overall}); using template`,
+      );
+      return {
+        text: templateBriefing(assessment.overall, island.name, primary),
+        source: "template",
+      };
+    }
     return { text, source: "claude" };
   } catch (err) {
     console.warn(`Bedrock briefing failed (${err.name}); using template`);

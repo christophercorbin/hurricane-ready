@@ -1491,7 +1491,20 @@
       levelSel.value = prefs.minLevel; quietBox.checked = prefs.quiet;
       const readPrefs = () => ({ minLevel: levelSel.value, quiet: quietBox.checked });
       const savePrefs = (p) => { try { localStorage.setItem("hr-alert-prefs", JSON.stringify(p)); } catch { /* ignore */ } };
-      const postSub = (sub) => fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, ...readPrefs() }) });
+      // Unsubscribe token (#18). The server hands this back on subscribe; we
+      // store it in localStorage and replay it on /api/unsubscribe. Without
+      // it, anyone who learns the push endpoint URL could silently mute
+      // this device.
+      const tokenKey = "hr-unsub-token";
+      const readToken = () => { try { return localStorage.getItem(tokenKey) || ""; } catch { return ""; } };
+      const writeToken = (t) => { try { if (t) localStorage.setItem(tokenKey, t); else localStorage.removeItem(tokenKey); } catch { /* ignore */ } };
+      const postSub = async (sub) => {
+        const r = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, ...readPrefs() }) });
+        if (r.ok) {
+          try { const j = await r.json(); if (j.unsubscribeToken) writeToken(j.unsubscribeToken); } catch { /* ignore */ }
+        }
+        return r;
+      };
 
       const setState = (on) => {
         bar.classList.toggle("on", on);
@@ -1526,8 +1539,13 @@
           if (btn.dataset.on) {
             const sub = await reg.pushManager.getSubscription();
             if (sub) {
-              await fetch("/api/unsubscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+              await fetch("/api/unsubscribe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ endpoint: sub.endpoint, unsubscribeToken: readToken() }),
+              });
               await sub.unsubscribe();
+              writeToken("");
             }
             setState(false);
           } else {

@@ -384,9 +384,15 @@ const server = createServer((req, res) => {
     }
     readJson(req).then((body) => {
       const sub = body && body.subscription ? body.subscription : body;
-      const ok = sub && addSubscription(sub, { minLevel: body && body.minLevel, quiet: body && body.quiet });
-      res.writeHead(ok ? 201 : 400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: Boolean(ok) }));
+      // Returns { unsubscribeToken } on success, null on rejection (#18).
+      const result = sub && addSubscription(sub, { minLevel: body && body.minLevel, quiet: body && body.quiet });
+      if (result) {
+        res.writeHead(201, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, unsubscribeToken: result.unsubscribeToken }));
+      } else {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+      }
     });
     return;
   }
@@ -397,9 +403,24 @@ const server = createServer((req, res) => {
       return;
     }
     readJson(req).then((body) => {
-      const removed = body && body.endpoint ? removeSubscription(body.endpoint) : false;
-      res.writeHead(removed ? 200 : 404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: removed }));
+      if (!body || !body.endpoint) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "missing_endpoint" }));
+        return;
+      }
+      // Token required (#18). Wrong/absent token → 403 (not 404) so a
+      // probe can't distinguish "endpoint not present" from "wrong token".
+      const result = removeSubscription(body.endpoint, body.unsubscribeToken);
+      if (result.ok) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+      } else if (result.reason === "token") {
+        res.writeHead(403, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "invalid_token" }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+      }
     });
     return;
   }

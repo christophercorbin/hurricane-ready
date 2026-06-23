@@ -94,7 +94,17 @@ REPLAY=1 DISABLE_AI=1 docker compose up --build
 docker compose up --build
 ```
 
-With AWS credentials mounted (`~/.aws`, read-only) you get Claude-written briefings via Bedrock. Configure channels through environment variables (see `compose.yaml`):
+With AWS credentials passed via env vars you get Claude-written briefings via Bedrock. The recommended local flow uses short-lived SSO credentials:
+
+```bash
+# Export scoped, time-limited credentials for the current shell.
+eval "$(aws configure export-credentials --profile personal-eportfolio-prod --format env)"
+docker compose up
+```
+
+This avoids mounting `~/.aws` into the container (which would expose every SSO cache and every configured profile, including production accounts). The three `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` env vars are picked up automatically by the SDK and expire when the SSO session does — typically 1–8 hours.
+
+Configure channels through environment variables (see `compose.yaml`):
 
 - `ALERT_EMAILS` + `SENDER_EMAIL` — SES email (sender must be SES-verified)
 - `ALERT_PHONES` — SMS via SNS, E.164 format (`+1246...`)

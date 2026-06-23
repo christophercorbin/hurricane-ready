@@ -19,6 +19,23 @@ services:
       MODEL_ID: ${MODEL_ID:-us.anthropic.claude-haiku-4-5-20251001-v1:0}
       DISABLE_AI: ${DISABLE_AI:-0}
 
+      # --- AWS credentials (#31). Pass scoped, short-lived creds via env
+      # instead of mounting ~/.aws — which exposed every SSO cache + every
+      # profile (including production accounts) to the container.
+      # Recommended local flow:
+      #   eval "$(aws sso login --sso-session personal --no-browser=false; \
+      #     aws configure export-credentials --profile personal-eportfolio-prod \
+      #       --format env)"
+      #   docker compose up
+      # `aws configure export-credentials --format env` emits the three
+      # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN
+      # exports that the AWS SDK reads automatically. Tokens are typically
+      # 1–8h scoped, so the container loses access when they expire — much
+      # narrower blast radius than mounting the full ~/.aws.
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+
       # --- Web Push (optional; "Get storm alerts" opt-in) ---
       # Generate once: npx web-push generate-vapid-keys  (put in .env)
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
@@ -33,8 +50,6 @@ services:
       WEBHOOK_URL: ${WEBHOOK_URL:-}
     volumes:
       - hurricane-state:/data
-      # Read-only AWS credentials for Bedrock/SES/SNS
-      - ~/.aws:/home/node/.aws:ro
     read_only: true
     tmpfs:
       - /tmp

@@ -9,10 +9,16 @@
 import webpush from "web-push";
 import { writeJsonAtomic, readJsonSafe } from "./storage.mjs";
 import { isAllowedPushEndpoint } from "./endpoint.mjs";
+import { computeUnsubscribeToken, unsubscribeTokenMatches } from "./unsubscribe-token.mjs";
 
 const PUBLIC = process.env.VAPID_PUBLIC_KEY || "";
 const PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
 const SUBJECT = process.env.VAPID_SUBJECT || "mailto:alerts@hurricane-ready.local";
+// Unsubscribe token secret (#18). Derived from VAPID_PRIVATE_KEY by default
+// (already a long-lived server secret); override with UNSUBSCRIBE_SECRET to
+// rotate independently. Tokens minted with the prior secret stop verifying
+// the moment this value changes — that's the intended escape hatch.
+const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET || PRIVATE;
 
 export const pushEnabled = Boolean(PUBLIC && PRIVATE);
 if (pushEnabled) {
@@ -85,30 +91,43 @@ export function addSubscription(sub, prefs = {}) {
   // Require a well-formed PushSubscription (endpoint + encryption keys).
   if (!sub || typeof sub.endpoint !== "string" || !sub.keys ||
       typeof sub.keys.p256dh !== "string" || typeof sub.keys.auth !== "string") {
-    return false;
+    return null;
   }
   // Endpoint must point at a known push service over https — no raw IPs, no
   // attacker-controlled URLs (issue #17, SSRF defense).
-  if (!isAllowedPushEndpoint(sub.endpoint, ALLOWED_HOSTS)) return false;
+  if (!isAllowedPushEndpoint(sub.endpoint, ALLOWED_HOSTS)) return null;
   const record = {
     subscription: sub,
     minLevel: normLevel(prefs.minLevel),
     quiet: Boolean(prefs.quiet),
   };
   const existing = subs.find((r) => r.subscription.endpoint === sub.endpoint);
-  if (existing) { existing.minLevel = record.minLevel; existing.quiet = record.quiet; save(); return true; }
-  if (subs.length >= MAX_SUBS) return false; // bound storage growth
+  if (existing) {
+    existing.minLevel = record.minLevel;
+    existing.quiet = record.quiet;
+    save();
+    return { unsubscribeToken: computeUnsubscribeToken(sub.endpoint, UNSUBSCRIBE_SECRET) };
+  }
+  if (subs.length >= MAX_SUBS) return null; // bound storage growth
   subs.push(record);
   save();
-  return true;
+  // Token is deterministic from (endpoint, secret) so we recompute on every
+  // unsubscribe attempt — no need to persist it per-record (#18).
+  return { unsubscribeToken: computeUnsubscribeToken(sub.endpoint, UNSUBSCRIBE_SECRET) };
 }
 
-export function removeSubscription(endpoint) {
+export function removeSubscription(endpoint, submittedToken) {
+  // Ownership check (#18): require the HMAC token the server issued at
+  // subscribe time. Anyone who learns an endpoint URL (via SSRF, leaked
+  // log, browser memory dump) can no longer silently mute that subscriber.
+  if (!unsubscribeTokenMatches(endpoint, UNSUBSCRIBE_SECRET, submittedToken)) {
+    return { ok: false, reason: "token" };
+  }
   const before = subs.length;
   subs = subs.filter((r) => r.subscription.endpoint !== endpoint);
   const removed = subs.length !== before;
   if (removed) save();
-  return removed;
+  return { ok: removed, reason: removed ? null : "not-found" };
 }
 
 // Should this subscriber get a push for `level`?  Honour their minimum level;

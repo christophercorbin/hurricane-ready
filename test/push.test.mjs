@@ -12,6 +12,8 @@ delete process.env.VAPID_PRIVATE_KEY;
 // Test fixture endpoints use the host "x" — pin the allowlist to match so the
 // existing add/remove tests still exercise valid endpoints.
 process.env.PUSH_ALLOWED_HOSTS = "x";
+// Fixed secret so unsubscribe-token tests are deterministic.
+process.env.UNSUBSCRIBE_SECRET = "test-secret";
 
 const push = await import("../src/push.mjs");
 
@@ -24,42 +26,74 @@ test("push disabled without VAPID keys", () => {
 
 const sub = (n) => ({ endpoint: `https://x/${n}`, keys: { p256dh: "a", auth: "b" } });
 
+// Capture tokens for use in unsubscribe tests below.
+const tokens = {};
+
 test("add/remove subscriptions, de-duplicated by endpoint", () => {
   assert.equal(push.subscriptionCount(), 0);
-  assert.equal(push.addSubscription(sub(1)), true);
-  push.addSubscription(sub(1)); // duplicate
-  push.addSubscription(sub(2));
+  const r1 = push.addSubscription(sub(1));
+  assert.ok(r1 && typeof r1.unsubscribeToken === "string", "addSubscription returns a token (issue #18)");
+  tokens.s1 = r1.unsubscribeToken;
+  push.addSubscription(sub(1)); // duplicate; updates prefs
+  const r2 = push.addSubscription(sub(2));
+  tokens.s2 = r2.unsubscribeToken;
   assert.equal(push.subscriptionCount(), 2);
-  push.removeSubscription("https://x/1");
+  const removed1 = push.removeSubscription("https://x/1", tokens.s1);
+  assert.deepEqual(removed1, { ok: true, reason: null });
   assert.equal(push.subscriptionCount(), 1);
 });
 
-test("addSubscription rejects malformed input", () => {
-  assert.equal(push.addSubscription(null), false);
-  assert.equal(push.addSubscription({}), false);
-  assert.equal(push.addSubscription({ endpoint: "https://x/9" }), false); // no keys
+test("addSubscription rejects malformed input (returns null instead of a token)", () => {
+  assert.equal(push.addSubscription(null), null);
+  assert.equal(push.addSubscription({}), null);
+  assert.equal(push.addSubscription({ endpoint: "https://x/9" }), null); // no keys
 });
 
 test("addSubscription rejects endpoints whose host is not in the allowlist (issue #17)", () => {
-  // Host not in PUSH_ALLOWED_HOSTS ("x" only) → reject.
   const bad = { endpoint: "https://attacker.example.com/push", keys: { p256dh: "a", auth: "b" } };
-  assert.equal(push.addSubscription(bad), false);
+  assert.equal(push.addSubscription(bad), null);
 });
 
 test("addSubscription rejects raw IP endpoints (defense vs SSRF)", () => {
   const ip = { endpoint: "https://169.254.169.254/iam/", keys: { p256dh: "a", auth: "b" } };
-  assert.equal(push.addSubscription(ip), false);
+  assert.equal(push.addSubscription(ip), null);
 });
 
 test("addSubscription rejects http:// endpoints (https only)", () => {
   const cleartext = { endpoint: "http://x/insecure", keys: { p256dh: "a", auth: "b" } };
-  assert.equal(push.addSubscription(cleartext), false);
+  assert.equal(push.addSubscription(cleartext), null);
 });
 
-test("removeSubscription returns true when the endpoint was present, false otherwise (issue #17)", () => {
-  // From earlier tests, https://x/2 is still subscribed; https://x/1 was removed.
-  assert.equal(push.removeSubscription("https://x/2"), true, "removing a real subscription returns true");
-  assert.equal(push.removeSubscription("https://x/never-existed"), false, "removing an unknown endpoint returns false");
+test("removeSubscription requires the unsubscribe token (issue #18)", () => {
+  // From earlier tests, https://x/2 is still subscribed; tokens.s2 was issued for it.
+  // Wrong token → 'token' reason, no removal.
+  assert.deepEqual(
+    push.removeSubscription("https://x/2", "wrong-token"),
+    { ok: false, reason: "token" },
+  );
+  assert.equal(push.subscriptionCount(), 1, "wrong-token attempt must NOT remove the subscription");
+  // No token at all → still rejected.
+  assert.deepEqual(
+    push.removeSubscription("https://x/2", undefined),
+    { ok: false, reason: "token" },
+  );
+  // Correct token → removed.
+  assert.deepEqual(
+    push.removeSubscription("https://x/2", tokens.s2),
+    { ok: true, reason: null },
+  );
+  assert.equal(push.subscriptionCount(), 0);
+});
+
+test("removeSubscription with the right token but an absent endpoint reports not-found", () => {
+  // Compute a valid token for an endpoint that was never subscribed.
+  const fresh = push.addSubscription(sub(99));
+  push.removeSubscription("https://x/99", fresh.unsubscribeToken); // removed
+  // Now retry — endpoint is gone but the token is still valid (deterministic).
+  assert.deepEqual(
+    push.removeSubscription("https://x/99", fresh.unsubscribeToken),
+    { ok: false, reason: "not-found" },
+  );
 });
 
 test("sendPushToAll is a no-op when push is disabled", async () => {
