@@ -15,7 +15,11 @@
 export async function mapWithConcurrency(items, limit, fn, { settled = false } = {}) {
   const out = new Array(items.length);
   let next = 0;
-  const workerCount = Math.min(limit, items.length);
+  // Clamp `limit` to at least 1. push.mjs already guards via `Math.max(1, …)`,
+  // but a future caller passing 0 / negative would otherwise silently get back
+  // an array of `undefined` with no work performed. Clamping at the utility
+  // surfaces the misuse instead of failing silently.
+  const workerCount = Math.min(Math.max(1, limit), items.length);
   async function worker() {
     while (true) {
       const i = next++;

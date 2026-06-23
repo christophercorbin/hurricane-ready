@@ -72,3 +72,14 @@ test("empty input resolves to an empty array immediately", async () => {
   const r = await mapWithConcurrency([], 5, async (n) => n);
   assert.deepEqual(r, []);
 });
+
+test("limit <= 0 is clamped to 1 so the helper never silently no-ops", async () => {
+  // Defense-in-depth (#56 follow-up). push.mjs already guards
+  // `Math.max(1, …)` on PUSH_CONCURRENCY, but a future caller that passes
+  // 0 or a negative limit should not get back an array of `undefined`
+  // with zero work done — surface the misuse by still processing the batch.
+  for (const limit of [0, -3, -Infinity]) {
+    const r = await mapWithConcurrency([1, 2, 3], limit, async (n) => n * 2);
+    assert.deepEqual(r, [2, 4, 6], `limit=${limit} should still process every item`);
+  }
+});
