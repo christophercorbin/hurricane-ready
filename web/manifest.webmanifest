@@ -1,7 +1,7 @@
 {
-  "name": "Hurricane-Ready — Barbados Storm Watch",
-  "short_name": "Hurricane-Ready",
-  "description": "Easy-to-read Barbados weather and hurricane alerts.",
+  "name": "Bim Weather — Barbados Weather & Storm Watch",
+  "short_name": "Bim Weather",
+  "description": "Easy-to-read Barbados weather, things to do, and storm alerts.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1,5 +1,5 @@
 /**
- * Hurricane-Ready: single-container service.
+ * Bim Weather (formerly Hurricane-Ready): single-container service.
  * Poll loop (live NHC or replay) -> deterministic threat engine ->
  * AI briefing -> alert dispatch on level change -> dashboard + JSON API.
  */
@@ -484,7 +484,7 @@ const loop = createTickLoop({
 
 server.listen(config.port, async () => {
   console.log(
-    `Hurricane-Ready watching ${config.island.name} on :${config.port} ` +
+    `Bim Weather watching ${config.island.name} on :${config.port} ` +
       `(${status.mode} mode, tick every ${intervalMs / 1000}s)`
   );
   await loop.runOnce();

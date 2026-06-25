@@ -1,0 +1,9 @@
+# Dev-only overrides — auto-merged on top of compose.yaml by `docker compose`.
+# Bind-mounts static front-end assets so edits to web/ show on a browser
+# refresh, with no image rebuild. Mounted :ro to respect the base service's
+# read_only: true hardening. Not used in deploy (CI/prod build the image and
+# don't ship this file).
+services:
+  hurricane-ready:
+    volumes:
+      - ./web:/app/web:ro

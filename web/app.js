@@ -6,6 +6,23 @@
       IMMINENT: "Finish preparations and be ready to shelter.",
     };
     const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    // ---- Inline line-icon set (Lucide, MIT-licensed) for a professional,
+    // emoji-free UI. Icons are decorative (text labels carry meaning), so each
+    // SVG is aria-hidden. currentColor makes them inherit the theme. (#icons)
+    const UI_ICONS = {"sun":"<circle cx=\"12\" cy=\"12\" r=\"4\" /> <path d=\"M12 2v2\" /> <path d=\"M12 20v2\" /> <path d=\"m4.93 4.93 1.41 1.41\" /> <path d=\"m17.66 17.66 1.41 1.41\" /> <path d=\"M2 12h2\" /> <path d=\"M20 12h2\" /> <path d=\"m6.34 17.66-1.41 1.41\" /> <path d=\"m19.07 4.93-1.41 1.41\" />","calendar-days":"<path d=\"M8 2v4\" /> <path d=\"M16 2v4\" /> <rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\" /> <path d=\"M3 10h18\" /> <path d=\"M8 14h.01\" /> <path d=\"M12 14h.01\" /> <path d=\"M16 14h.01\" /> <path d=\"M8 18h.01\" /> <path d=\"M12 18h.01\" /> <path d=\"M16 18h.01\" />","umbrella":"<path d=\"M12 13v7a2 2 0 0 0 4 0\" /> <path d=\"M12 2v2\" /> <path d=\"M20.992 13a1 1 0 0 0 .97-1.274 10.284 10.284 0 0 0-19.923 0A1 1 0 0 0 3 13z\" />","cloud-rain":"<path d=\"M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242\" /> <path d=\"M16 14v6\" /> <path d=\"M8 14v6\" /> <path d=\"M12 16v6\" />","radar":"<path d=\"M19.07 4.93A10 10 0 0 0 6.99 3.34\" /> <path d=\"M4 6h.01\" /> <path d=\"M2.29 9.62A10 10 0 1 0 21.31 8.35\" /> <path d=\"M16.24 7.76A6 6 0 1 0 8.23 16.67\" /> <path d=\"M12 18h.01\" /> <path d=\"M17.99 11.66A6 6 0 0 1 15.77 16.67\" /> <circle cx=\"12\" cy=\"12\" r=\"2\" /> <path d=\"m13.41 10.59 5.66-5.66\" />","tornado":"<path d=\"M21 4H3\" /> <path d=\"M18 8H6\" /> <path d=\"M19 12H9\" /> <path d=\"M16 16h-6\" /> <path d=\"M11 20H9\" />","life-buoy":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m4.93 4.93 4.24 4.24\" /> <path d=\"m14.83 9.17 4.24-4.24\" /> <path d=\"m14.83 14.83 4.24 4.24\" /> <path d=\"m9.17 14.83-4.24 4.24\" /> <circle cx=\"12\" cy=\"12\" r=\"4\" />","backpack":"<path d=\"M4 10a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z\" /> <path d=\"M8 10h8\" /> <path d=\"M8 18h8\" /> <path d=\"M8 22v-6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v6\" /> <path d=\"M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2\" />","palmtree":"<path d=\"M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4\" /> <path d=\"M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3\" /> <path d=\"M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35\" /> <path d=\"M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14\" />","waves":"<path d=\"M2 12q2.5 2 5 0t5 0 5 0 5 0\" /> <path d=\"M2 19q2.5 2 5 0t5 0 5 0 5 0\" /> <path d=\"M2 5q2.5 2 5 0t5 0 5 0 5 0\" />","moon":"<path d=\"M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401\" />","wind":"<path d=\"M12.8 19.6A2 2 0 1 0 14 16H2\" /> <path d=\"M17.5 8a2.5 2.5 0 1 1 2 4H2\" /> <path d=\"M9.8 4.4A2 2 0 1 1 11 8H2\" />","globe":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20\" /> <path d=\"M2 12h20\" />","tags":"<path d=\"M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z\" /> <path d=\"M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193\" /> <circle cx=\"10.5\" cy=\"6.5\" r=\".5\" fill=\"currentColor\" />","lightbulb":"<path d=\"M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5\" /> <path d=\"M9 18h6\" /> <path d=\"M10 22h4\" />","history":"<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\" /> <path d=\"M3 3v5h5\" /> <path d=\"M12 7v5l4 2\" />","phone":"<path d=\"M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384\" />","house":"<path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\" /> <path d=\"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\" />","external-link":"<path d=\"M15 3h6v6\" /> <path d=\"M10 14 21 3\" /> <path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\" />","megaphone":"<path d=\"M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z\" /> <path d=\"M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14\" /> <path d=\"M8 6v8\" />","siren":"<path d=\"M7 18v-6a5 5 0 1 1 10 0v6\" /> <path d=\"M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z\" /> <path d=\"M21 12h1\" /> <path d=\"M18.5 4.5 18 5\" /> <path d=\"M2 12h1\" /> <path d=\"M12 2v1\" /> <path d=\"m4.929 4.929.707.707\" /> <path d=\"M12 12v6\" />","landmark":"<path d=\"M10 18v-7\" /> <path d=\"M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z\" /> <path d=\"M14 18v-7\" /> <path d=\"M18 18v-7\" /> <path d=\"M3 22h18\" /> <path d=\"M6 18v-7\" />","sailboat":"<path d=\"M10 2v15\" /> <path d=\"M7 22a4 4 0 0 1-4-4 1 1 0 0 1 1-1h16a1 1 0 0 1 1 1 4 4 0 0 1-4 4z\" /> <path d=\"M9.159 2.46a1 1 0 0 1 1.521-.193l9.977 8.98A1 1 0 0 1 20 13H4a1 1 0 0 1-.824-1.567z\" />","cloud-sun":"<path d=\"M12 2v2\" /> <path d=\"m4.93 4.93 1.41 1.41\" /> <path d=\"M20 12h2\" /> <path d=\"m19.07 4.93-1.41 1.41\" /> <path d=\"M15.947 12.65a4 4 0 0 0-5.925-4.128\" /> <path d=\"M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z\" />","footprints":"<path d=\"M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z\" /> <path d=\"M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z\" /> <path d=\"M16 17h4\" /> <path d=\"M4 13h4\" />","trees":"<path d=\"M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z\" /> <path d=\"M7 16v6\" /> <path d=\"M13 19v3\" /> <path d=\"M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .8-1.7L13 3l-1.4 1.5\" />","flower-2":"<path d=\"M12 5a3 3 0 1 1 3 3m-3-3a3 3 0 1 0-3 3m3-3v1M9 8a3 3 0 1 0 3 3M9 8h1m5 0a3 3 0 1 1-3 3m3-3h-1m-2 3v-1\" /> <circle cx=\"12\" cy=\"8\" r=\"2\" /> <path d=\"M12 10v12\" /> <path d=\"M12 22c4.2 0 7-1.667 7-5-4.2 0-7 1.667-7 5Z\" /> <path d=\"M12 22c-4.2 0-7-1.667-7-5 4.2 0 7 1.667 7 5Z\" />","mountain":"<path d=\"m8 3 4 8 5-5 5 15H2L8 3z\" />","gem":"<path d=\"M10.5 3 8 9l4 13 4-13-2.5-6\" /> <path d=\"M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z\" /> <path d=\"M2 9h20\" />","anchor":"<path d=\"M12 6v16\" /> <path d=\"m19 13 2-1a9 9 0 0 1-18 0l2 1\" /> <path d=\"M9 11h6\" /> <circle cx=\"12\" cy=\"4\" r=\"2\" />","wine":"<path d=\"M8 22h8\" /> <path d=\"M7 10h10\" /> <path d=\"M12 15v7\" /> <path d=\"M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z\" />","shopping-bag":"<path d=\"M16 10a4 4 0 0 1-8 0\" /> <path d=\"M3.103 6.034h17.794\" /> <path d=\"M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z\" />","utensils":"<path d=\"M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2\" /> <path d=\"M7 2v20\" /> <path d=\"M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7\" />","message-circle":"<path d=\"M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719\" />","settings":"<path d=\"M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />","bell":"<path d=\"M10.268 21a2 2 0 0 0 3.464 0\" /> <path d=\"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326\" />","triangle-alert":"<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />"};
+    function iconSvg(name) {
+      const inner = UI_ICONS[name];
+      if (!inner) return "";
+      return `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${inner}</svg>`;
+    }
+    function hydrateIcons(root) {
+      (root || document).querySelectorAll("[data-icon]").forEach((el) => {
+        const n = el.getAttribute("data-icon");
+        if (UI_ICONS[n]) el.innerHTML = iconSvg(n);
+      });
+    }
+
     // Date math is anchored to the island, not the browser's local TZ (#48).
     // A user opening the dashboard in UTC or Pacific time previously saw the
     // wrong day-of-week labels on the 7-day strip and the wrong wall-clock
@@ -24,7 +41,7 @@
     }
 
     // ---- Settings: units + theme, remembered in localStorage ----
-    const settings = { temp: "C", wind: "kmh", theme: "auto" };
+    const settings = { temp: "C", wind: "kmh", theme: "light" };
     function loadSettings() { try { Object.assign(settings, JSON.parse(localStorage.getItem("hr-settings") || "{}")); } catch { /* ignore */ } }
     function saveSettings() { try { localStorage.setItem("hr-settings", JSON.stringify(settings)); } catch { /* ignore */ } }
     const prefersDark = () => !window.matchMedia || window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -348,15 +365,104 @@
       }, 600);
     }
 
+    // Things to do in Barbados, tagged by the weather they suit. "fine" = dry
+    // day, "wet" = rain about, "windy" = breezy; "any" works rain or shine.
+    const ACTIVITIES = [
+      { icon: "waves", name: "Carlisle Bay", area: "Bridgetown", blurb: "Calm, clear water for a swim and snorkelling over shipwrecks.", modes: ["fine"], indoor: false },
+      { icon: "umbrella", name: "Crane Beach", area: "St. Philip", blurb: "One of the island's most famous pink-sand beaches.", modes: ["fine"], indoor: false },
+      { icon: "sailboat", name: "Catamaran cruise", area: "West coast", blurb: "Sail the calm Caribbean side and swim with sea turtles.", modes: ["fine"], indoor: false },
+      { icon: "trees", name: "Welchman Hall Gully", area: "St. Thomas", blurb: "A shady walk through tropical forest and giant trees.", modes: ["fine"], indoor: false },
+      { icon: "flower-2", name: "Hunte's Gardens", area: "St. Joseph", blurb: "A lush, leafy garden tucked into a gully.", modes: ["fine"], indoor: false },
+      { icon: "mountain", name: "Farley Hill National Park", area: "St. Peter", blurb: "Picnic spot with sweeping views over the east coast.", modes: ["fine"], indoor: false },
+      { icon: "waves", name: "Bathsheba & the Soup Bowl", area: "St. Joseph", blurb: "Watch the surfers and the dramatic Atlantic rollers.", modes: ["fine", "windy"], indoor: false },
+      { icon: "wind", name: "Silver Sands", area: "Christ Church", blurb: "The island's kitesurfing and windsurfing hotspot — best when it's breezy.", modes: ["windy"], indoor: false },
+      { icon: "gem", name: "Harrison's Cave", area: "St. Thomas", blurb: "Underground crystal cave by tram — great whatever the weather.", modes: ["wet", "fine", "any"], indoor: true },
+      { icon: "anchor", name: "Animal Flower Cave", area: "St. Lucy", blurb: "A sea cave at the island's northern tip with ocean views.", modes: ["fine", "any"], indoor: false },
+      { icon: "landmark", name: "Barbados Museum", area: "Garrison", blurb: "Island history and heritage, all under one roof.", modes: ["wet"], indoor: true },
+      { icon: "wine", name: "Rum distillery tour", area: "Mount Gay / St. Nicholas Abbey", blurb: "Tour a historic distillery and taste Barbadian rum, rain or shine.", modes: ["wet", "any"], indoor: true },
+      { icon: "shopping-bag", name: "Bridgetown & Broad Street", area: "Bridgetown", blurb: "Shopping and the UNESCO-listed Garrison — easy to enjoy in the rain.", modes: ["wet", "any"], indoor: true },
+      { icon: "utensils", name: "Oistins Fish Fry", area: "Christ Church", blurb: "Friday-night food, music and liming by the sea.", modes: ["any"], indoor: false },
+    ];
+    function todayMode(s) {
+      const w = s.weather;
+      const today = s.outlook && s.outlook.daily && s.outlook.daily[0];
+      const rainProb = today ? (today.rainProb ?? 0) : 0;
+      const raining = !!(w && w.precipMm > 0);
+      const windKt = w ? (w.windKt ?? 0) : 0;
+      const known = !!(w || today);
+      if (!known) return "any";
+      if (raining || rainProb >= 55) return "wet";
+      if (windKt >= 22) return "windy";
+      return "fine";
+    }
+    function renderThingsToDo(s) {
+      const grid = document.getElementById("todo-grid");
+      const sum = document.getElementById("todo-summary");
+      if (!grid) return;
+      const mode = todayMode(s);
+      let pick = ACTIVITIES.filter((a) => a.modes.includes(mode) || a.modes.includes("any"));
+      if (mode === "wet") pick = pick.sort((a, b) => (b.indoor ? 1 : 0) - (a.indoor ? 1 : 0));
+      pick = pick.slice(0, 6);
+      sum.textContent =
+        mode === "wet" ? "A wet one today — here are some things to do under cover:"
+        : mode === "windy" ? "Breezy out — good for the water, or try these:"
+        : mode === "fine" ? "Great day to get outside — a few ideas:"
+        : "Some ideas for your time in Barbados:";
+      grid.innerHTML = pick.map((a) =>
+        `<div class="todo-item"><div class="todo-ico">${iconSvg(a.icon)}</div>` +
+        `<div><div class="todo-name">${escapeHtml(a.name)}</div>` +
+        `<div class="todo-area">${escapeHtml(a.area)}</div>` +
+        `<div class="todo-blurb">${escapeHtml(a.blurb)}</div></div></div>`).join("");
+    }
+
+    // A friendly "today at a glance" verdict (weather.com-style activity tip),
+    // built from today's rain chance, wind and UV. Safety takes priority.
+    function dayVerdict(s) {
+      const w = s.weather;
+      const today = s.outlook && s.outlook.daily && s.outlook.daily[0];
+      if (!w && !today) return null;
+      if (s.level && s.level !== "ALL_CLEAR") {
+        return { icon: "tornado", html: "<b>Unsettled spell.</b> Keep an eye on the storm updates below and have your plan ready." };
+      }
+      const rainProb = today ? (today.rainProb ?? 0) : 0;
+      const raining = !!(w && w.precipMm > 0);
+      const windKt = w ? (w.windKt ?? 0) : 0;
+      const uv = today ? (today.uvMax ?? 0) : 0;
+      const sun = uv >= 8 ? " Wear sunscreen and grab some shade around midday." : "";
+      if (raining || rainProb >= 65) {
+        return { icon: "umbrella", html: "<b>A wet one today.</b> Keep an umbrella handy — better for indoor plans." };
+      }
+      if (rainProb >= 35) {
+        return { icon: "cloud-sun", html: "<b>Sun with the odd shower.</b> Fine for a quick outing, but carry a brolly just in case." };
+      }
+      if (windKt >= 22) {
+        return { icon: "footprints", html: `<b>Dry but breezy.</b> Good for a walk — just hold onto your hat.${sun}` };
+      }
+      return { icon: "palmtree", html: `<b>Lovely day.</b> Great for a walk, the beach or a lime outside.${sun}` };
+    }
+
     function renderNow(s) {
       const w = s.weather;
       const el = document.getElementById("now-summary");
+      const dv = document.getElementById("day-verdict");
+      const verdict = dayVerdict(s);
+      if (verdict && dv) {
+        dv.hidden = false;
+        document.getElementById("dv-ico").innerHTML = iconSvg(verdict.icon);
+        document.getElementById("dv-text").innerHTML = verdict.html;
+      } else if (dv) {
+        dv.hidden = true;
+      }
       if (!w) { el.textContent = "Current conditions are unavailable right now."; return; }
       document.getElementById("wx-now").hidden = false;
       document.getElementById("wx-grid").hidden = false;
+      document.getElementById("wx-ico").textContent = icon(w.code);
       document.getElementById("wx-temp").textContent = fmtTemp(w.tempC);
       document.getElementById("wx-desc").textContent = w.description;
       document.getElementById("wx-feels").textContent = "Feels like " + fmtTemp(w.feelsLikeC);
+      const td = s.outlook && s.outlook.daily && s.outlook.daily[0];
+      document.getElementById("wx-hilo").innerHTML = td
+        ? `Today <b>${fmtDeg(td.maxC)}</b> / ${fmtDeg(td.minC)}` : "";
       document.getElementById("wx-grid").innerHTML = `
         <div class="wx-tile"><div class="lbl">Wind</div><div class="val">${fromKt(w.windKt)} ${wUnit()} ${w.windFrom}</div></div>
         <div class="wx-tile"><div class="lbl">Gusts</div><div class="val">${fromKt(w.gustKt)} ${wUnit()}</div></div>
@@ -810,6 +916,19 @@
       document.getElementById("banner-storms").innerHTML = s.storms.length
         ? `tracking<b>${s.storms.map(x => escapeHtml(x.name)).join(", ")}</b>` : "";
 
+      // Safety: the Storms card is collapsed by default, but if a threat is
+      // present or escalates we auto-open it so people never have to hunt for
+      // it. Tracks the last level so a user who re-closes it is respected
+      // unless the situation worsens.
+      const RANK = { ALL_CLEAR: 0, WATCH: 1, WARNING: 2, IMMINENT: 3 };
+      const curRank = RANK[s.level] ?? 0;
+      const civilActive = !!(s.civilAlert && s.civilAlert.active);
+      if ((curRank > 0 || s.storms.length || civilActive) && curRank > (render._autoLvl ?? -1)) {
+        const st = document.getElementById("storms");
+        if (st) st.open = true;
+      }
+      render._autoLvl = curRank;
+
       document.getElementById("briefing").textContent = sanitizeBriefing(s.briefing);
       document.getElementById("briefing-source").textContent =
         s.briefingSource === "claude" ? "✨ Written by Claude on Amazon Bedrock · level decided by deterministic engine" :
@@ -817,6 +936,7 @@
       document.getElementById("replay-label").textContent = s.replayLabel ?? "";
 
       renderNow(s);
+      renderThingsToDo(s);
       renderForecast(s.outlook);
       renderRainWind(s.outlook, s.weather);
       renderSea(s.outlook);
@@ -828,18 +948,31 @@
     }
 
     // Highlight the section nav link for whichever section is in view.
-    function setupScrollSpy() {
-      const links = [...document.querySelectorAll(".section-nav a")];
-      const byId = Object.fromEntries(links.map(a => [a.getAttribute("href").slice(1), a]));
-      const obs = new IntersectionObserver((entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            links.forEach(l => l.classList.remove("active"));
-            byId[e.target.id]?.classList.add("active");
-          }
-        }
-      }, { rootMargin: "-55% 0px -40% 0px" });
-      document.querySelectorAll("section[id]").forEach(sec => obs.observe(sec));
+    // Client-side pages (#router): the home page shows today's weather +
+    // things to do; every other sidebar item is its own sub-page so you only
+    // see one thing at a time. Cards carry data-page; we show the active page's
+    // cards and hide the rest. Hash-routed so pages are linkable + Back works.
+    const PAGES = ["home", "forecast", "sea", "radar", "storms", "shelters", "prep"];
+    function pageFromHash() {
+      const h = (location.hash || "").replace("#", "");
+      return PAGES.includes(h) ? h : "home";
+    }
+    function showPage(page) {
+      document.querySelectorAll(".card[data-page]").forEach((c) => {
+        const on = c.dataset.page === page;
+        c.hidden = !on;
+        if (on && c.tagName === "DETAILS") c.open = true; // pages show content in full
+      });
+      document.querySelectorAll(".section-nav a").forEach((a) => {
+        a.classList.toggle("active", a.getAttribute("href") === "#" + page);
+      });
+      // Leaflet sizes wrong while its container is display:none — nudge on show.
+      if (page === "radar" && map) requestAnimationFrame(() => map.invalidateSize());
+      window.scrollTo(0, 0);
+    }
+    function setupRouter() {
+      showPage(pageFromHash());
+      window.addEventListener("hashchange", () => showPage(pageFromHash()));
     }
 
     function setOffline(off) { document.getElementById("offline-note").hidden = !off; }
@@ -963,12 +1096,9 @@
         const payload = await res.json();
         // Render-time exceptions (#46) must not freeze the polling loop.
         try { render(payload); } catch (err) { console.error("render failed:", err); }
-        // The sections above grow once live data lands, so an initial
-        // deep-link (e.g. /#sea) needs re-aligning after the first render.
-        if (first && location.hash) {
-          const el = document.querySelector(location.hash);
-          if (el) requestAnimationFrame(() => el.scrollIntoView());
-        }
+        // Re-assert the routed page after the first data render in case a
+        // deep-link (e.g. /#radar) needs the map re-sized once shown.
+        if (first) showPage(pageFromHash());
       } catch { /* transient */ }
     }
 
@@ -1023,7 +1153,8 @@
       refresh(true);
       setInterval(() => refresh(false), 60000);
       setSatellite();
-      setupScrollSpy();
+      hydrateIcons();
+      setupRouter();
       initShelters();
       document.getElementById("radar-toggle").addEventListener("click", toggleRadar);
       document.getElementById("sat-toggle").addEventListener("click", toggleSat);

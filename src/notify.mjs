@@ -21,7 +21,7 @@ export async function dispatchAlert(
   { level, previousLevel, briefing, island, alerts, region },
   { sesClient, snsClient, httpFetch = fetch } = {},
 ) {
-  const subject = `[Hurricane-Ready] ${island.name}: ${LEVEL_LABEL[level]} (was ${LEVEL_LABEL[previousLevel]})`;
+  const subject = `[Bim Weather] ${island.name}: ${LEVEL_LABEL[level]} (was ${LEVEL_LABEL[previousLevel]})`;
   const results = [];
 
   if (alerts.emails.length > 0 && alerts.senderEmail) {

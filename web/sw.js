@@ -1,9 +1,9 @@
-/* Hurricane-Ready service worker: offline shell + cached status + push. */
+/* Bim Weather service worker: offline shell + cached status + push. */
 // Bump on every deployment that changes any SHELL asset (#50). Without a
 // bump, the activate handler below keeps the old cache and viewers see
 // stale shell HTML until they clear storage. The matching client flow in
 // index.html shows an "Update available" toast when a new SW is waiting.
-const CACHE = "hr-cache-v2";
+const CACHE = "hr-cache-v3";
 const SHELL = [
   "/",
   "/index.html",
@@ -71,7 +71,7 @@ self.addEventListener("fetch", (e) => {
 self.addEventListener("push", (e) => {
   let data = {};
   try { data = e.data ? e.data.json() : {}; } catch { data = {}; }
-  const title = data.title || "Hurricane-Ready";
+  const title = data.title || "Bim Weather";
   const opts = {
     body: data.body || "",
     icon: "/icon-192.png",
