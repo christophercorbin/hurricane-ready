@@ -48,7 +48,12 @@ test("dashboard renders every section with real data", async ({ page }) => {
   // Season name chips
   expect(await page.locator("#season-names .name-chip").count()).toBeGreaterThan(0);
 
-  // Shelters: emergency numbers + parish filter
+  // Shelters: emergency numbers + parish filter. The redesign moved sections
+  // into a tabbed nav (one <details data-page> visible at a time), so activate
+  // the shelters page before interacting — count/text assertions work on hidden
+  // DOM, but selectOption requires the control to be visible.
+  await page.locator('.section-nav a[href="#shelters"]').click();
+  await expect(page.locator("#parish-select")).toBeVisible({ timeout: 15000 });
   await expect(page.locator(".emerg .emerg-num")).toHaveCount(5);
   await page.selectOption("#parish-select", "Christ Church");
   expect(await page.locator("#shelter-list .shelter").count()).toBeGreaterThan(0);
