@@ -12,3 +12,4 @@ previews/
 **/*.tfstate.*
 **/.terraform.tfstate.lock.info
 test-results/
+.superpowers/
