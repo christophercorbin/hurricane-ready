@@ -26,6 +26,17 @@ provider "aws" {
   }
 }
 
+# Cross-account provider: assumes the Route53RecordWriter role in the DNS
+# management account (438465156498) to write records in christophercorbin.cloud.
+provider "aws" {
+  alias  = "dns"
+  region = "us-east-1"
+  assume_role {
+    role_arn    = var.dns_role_arn
+    external_id = var.dns_external_id
+  }
+}
+
 variable "region" {
   type    = string
   default = "us-east-1"
