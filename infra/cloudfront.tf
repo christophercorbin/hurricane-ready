@@ -4,36 +4,12 @@
  * way in from the internet.
  */
 
-# ---------- Custom domain + TLS (prep for #23) ----------
-# Until you have a real domain, leave both empty: the distribution falls back
-# to the *.cloudfront.net default cert. With a real domain provisioned and an
-# ACM cert in us-east-1 (manual: aws acm request-certificate + DNS validation
-# in Route53 or whichever DNS provider you use), set both and re-apply.
-#
-# When both are set:
-#   - viewer_certificate switches to the ACM cert with TLSv1.2_2021 minimum
-#   - distribution `aliases` is populated so the custom domain reaches it
-#   - HSTS `preload` directive is emitted (it's meaningless on cloudfront.net,
-#     so we keep it off until a real domain backs the claim)
-
-variable "aliases" {
-  description = "Custom domain aliases for the CloudFront distribution. Empty list keeps the *.cloudfront.net default. All entries must be covered by the ACM certificate."
-  type        = list(string)
-  default     = []
-}
-
-variable "acm_certificate_arn" {
-  description = "ARN of a us-east-1 ACM certificate covering every entry in `aliases`. Required when `aliases` is non-empty."
-  type        = string
-  default     = ""
-  validation {
-    condition     = (length(var.aliases) == 0) == (var.acm_certificate_arn == "")
-    error_message = "`aliases` and `acm_certificate_arn` must both be set, or both be empty."
-  }
-}
-
+# ---------- Custom domain + TLS ----------
+# Set var.domain to enable the custom domain (cert + DNS are fully managed in
+# domain.tf via the cross-account aws.dns provider). Empty string => stay on the
+# default *.cloudfront.net cert.
 locals {
-  use_custom_domain = var.acm_certificate_arn != ""
+  use_custom_domain = var.domain != ""
 }
 
 # ---------- VPC Origin: CloudFront's connection to the internal ALB ----------
@@ -126,7 +102,7 @@ resource "aws_cloudfront_distribution" "app" {
   # DoS target.
   web_acl_id = aws_wafv2_web_acl.cf.arn
 
-  aliases = var.aliases
+  aliases = local.use_custom_domain ? [var.domain] : []
 
   origin {
     domain_name = aws_lb.app.dns_name
@@ -219,7 +195,7 @@ resource "aws_cloudfront_distribution" "app" {
   # fields makes the provider omit them from the API call.
   viewer_certificate {
     cloudfront_default_certificate = local.use_custom_domain ? null : true
-    acm_certificate_arn            = local.use_custom_domain ? var.acm_certificate_arn : null
+    acm_certificate_arn            = local.use_custom_domain ? aws_acm_certificate_validation.app[0].certificate_arn : null
     ssl_support_method             = local.use_custom_domain ? "sni-only" : null
     minimum_protocol_version       = local.use_custom_domain ? "TLSv1.2_2021" : null
   }
