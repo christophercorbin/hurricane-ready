@@ -25,6 +25,10 @@ The apex `christophercorbin.cloud` already serves the portfolio site (CloudFront
 - A **duplicate** `christophercorbin.cloud` zone exists in eportfolio-prod (`Z04951261B19QOXRD4IUE`) whose nameservers are NOT delegated → orphan; records there do not resolve. Cleanup candidate.
 - ACM certs for CloudFront must be created in **us-east-1**.
 
+## No Cloudflare
+
+This is 100% AWS: Route53 (DNS) + ACM (certs) + CloudFront + IAM, all via the `aws` Terraform provider. math-mentor's existing code assumed Cloudflare DNS (the `domain_ready` two-step, manual CNAMEs); that is removed. The only remaining `cloudflare` string in either repo is `cdnjs.cloudflare.com` — a public CDN for static JS libraries (KaTeX, marked, DOMPurify, Leaflet), unrelated to DNS or this work.
+
 ## Approach (chosen)
 
 **Shared mgmt IAM role + aliased `aws.dns` provider per app.** A single least-privilege role in the mgmt account, assumed by each app's Terraform, lets each app create its own ACM DNS-validation records and CloudFront alias record automatically. Reproducible, no manual DNS, least privilege. (Alternatives considered: self-contained per-app roles / manual record entry; a central DNS repo. Rejected as either more manual or more moving parts for two subdomains.)
