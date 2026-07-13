@@ -1,10 +1,10 @@
 # Custom-domain resources for Bim Weather. All DNS records land in the
-# authoritative christophercorbin.cloud zone (mgmt account) via aws.dns.
+# authoritative 246labs.cloud zone (mgmt account) via aws.dns.
 
 variable "domain" {
   description = "Custom subdomain for the dashboard. Empty disables the custom domain."
   type        = string
-  default     = "bimweather.christophercorbin.cloud"
+  default     = "bimweather.246labs.cloud"
 }
 
 variable "dns_role_arn" {
@@ -14,9 +14,9 @@ variable "dns_role_arn" {
 }
 
 variable "dns_zone_id" {
-  description = "Hosted zone id for christophercorbin.cloud (authoritative, mgmt account)."
+  description = "Hosted zone id for 246labs.cloud (authoritative, mgmt account)."
   type        = string
-  default     = "Z08882413R82BOPJVWS7Z"
+  default     = "Z02305342HXRSXC7R8OX5"
 }
 
 variable "dns_external_id" {
