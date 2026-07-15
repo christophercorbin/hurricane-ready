@@ -28,16 +28,20 @@
     // wrong day-of-week labels on the 7-day strip and the wrong wall-clock
     // for "winds reach us by X" — confusing during an actual storm.
     const ISLAND_TZ = "America/Barbados";
-    const ISLAND_DOW_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: ISLAND_TZ, weekday: "short" });
+    // Open-Meteo daily.date is already a YYYY-MM-DD calendar date in the island
+    // TZ, so its weekday is timezone-independent. We parse as UTC midnight and
+    // format in UTC: formatting in a negative-offset zone (island is UTC-4) would
+    // land the instant on the previous calendar day and shift every label back
+    // one (Thu → "Wed"). The time formatter below stays island TZ — it renders
+    // real timestamps ("winds reach us by X"), which do need the local offset.
+    const DOW_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short" });
     const ISLAND_TIME_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: ISLAND_TZ, hour: "numeric", minute: "2-digit", hour12: true });
     function islandDOW(dateStr) {
-      // Open-Meteo daily.date is YYYY-MM-DD in the requested TZ (island). We
-      // parse as UTC midnight and format in island TZ to get a stable label.
       if (!dateStr) return "—";
       const d = new Date(`${dateStr}T00:00:00Z`);
       if (!Number.isFinite(d.getTime())) return "—";
       // Intl returns "Sun"/"Mon"/etc with en-GB.
-      return ISLAND_DOW_FMT.format(d);
+      return DOW_FMT.format(d);
     }
 
     // ---- Settings: units + theme, remembered in localStorage ----
