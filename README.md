@@ -1,5 +1,7 @@
 # Hurricane-Ready 🇧🇧
 
+**Live:** [bimweather.246labs.cloud](https://bimweather.246labs.cloud)
+
 An easy-to-read Barbados weather dashboard **and** a hurricane preparedness alerter, in one hardened Docker container. It gives locals the everyday forecast in plain language, watches the National Hurricane Center feed, computes the storm threat deterministically, has Claude explain it calmly, and alerts by SMS, email, and webhook the moment the level changes.
 
 > **Unofficial project.** Forecasts and threat levels are generated automatically and may be wrong. Always follow official guidance from Barbados Meteorological Services and the Department of Emergency Management.
@@ -149,7 +151,18 @@ Two workflows in `.github/workflows/`:
 
 To wire an AWS account: `cd infra && tofu apply` there, then set the outputs as GitHub repo variables (`AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY`, and later `ECS_CLUSTER`/`ECS_SERVICE`). Until then the pipeline is fully functional against GHCR — anyone can `docker run ghcr.io/christophercorbin/hurricane-ready`.
 
+> **CloudFront invalidation is manual.** Release redeploys the ECS origin but does **not** invalidate the CDN. The app shell is cached at the edge (and `app.js` is served cache-first by the service worker), so after any change to `index.html`, `app.js`, or `sw.js`, bump `CACHE` in `web/sw.js` **and** invalidate CloudFront so viewers get the new assets:
+>
+> ```bash
+> aws cloudfront create-invalidation \
+>   --profile personal-sandbox \
+>   --distribution-id E8E6C9PTK52C7 \
+>   --paths /index.html /app.js /sw.js
+> ```
+
 ### Putting it on a real domain (TLS 1.2+, HSTS preload)
+
+> **Already deployed.** The live site runs on `bimweather.246labs.cloud`, fronted by CloudFront with an ACM cert (`TLSv1.2_2021` minimum) and HSTS preload. The steps below are the recipe used to get there — follow them to move it to a different domain.
 
 Without a domain, the distribution falls back to `*.cloudfront.net` — which forces TLSv1 as the minimum and makes HSTS preload meaningless. To upgrade:
 
