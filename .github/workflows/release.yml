@@ -3,6 +3,10 @@ name: Release
 on:
   push:
     branches: [main]
+    # Docs-only changes don't affect the image, so skip the build + ECS
+    # redeploy. workflow_dispatch still forces a release when needed.
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
 
 permissions:
